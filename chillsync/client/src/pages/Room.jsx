@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import io from 'socket.io-client';
 import { motion } from 'framer-motion';
-import { FaRocket, FaSatellite, FaGlobeAsia, FaUpload, FaUsers, FaComments, FaPaperPlane } from 'react-icons/fa';
+import { FaRocket, FaSatellite, FaGlobeAsia, FaUpload, FaUsers, FaComments, FaPaperPlane, FaPlay, FaPause, FaCompress, FaExpand, FaVolumeUp, FaVolumeDown, FaVolumeMute } from 'react-icons/fa';
 
 const RoomContainer = styled.div`
   padding: 2rem 0;
@@ -111,42 +111,39 @@ const VideoPlaceholder = styled.div`
   padding: 1.5rem;
 `;
 
-const VideoControls = styled.div`
-  padding: 1rem;
+const VideoPlayerControls = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4) 60%, transparent);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  background-color: rgba(13, 17, 23, 0.7);
-  border-top: 1px solid rgba(254, 240, 138, 0.15);
-  transition: opacity 0.3s ease;
-`;
-
-const ControlButton = styled.button`
-  background-color: var(--primary-color);
-  color: white;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex-direction: column;
+  gap: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 10;
   
-  &:hover {
-    background-color: var(--primary-hover);
-    box-shadow: 0 0 15px rgba(254, 240, 138, 0.5);
-    transform: scale(1.05);
+  ${VideoContainer}:hover & {
+    opacity: 1;
   }
   
-  &:disabled {
-    background-color: var(--grey-color);
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+  // Always show controls on touch devices
+  @media (max-width: 768px) {
+    opacity: 1;
+    padding: 0.5rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7) 80%, rgba(0, 0, 0, 0.4));
+  }
+`;
+
+const ControlsRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  
+  @media (max-width: 576px) {
+    gap: 0.25rem;
   }
 `;
 
@@ -155,6 +152,21 @@ const TimeDisplay = styled.div`
   font-size: 0.875rem;
   color: var(--space-star, #fef08a);
   opacity: 0.9;
+  background: rgba(13, 17, 23, 0.5);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  &:hover {
+    background: rgba(13, 17, 23, 0.7);
+  }
+  
+  @media (max-width: 576px) {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.35rem;
+  }
 `;
 
 const SeekBar = styled.input.attrs({ type: 'range' })`
@@ -291,12 +303,47 @@ const UploadLabel = styled.label`
 
 const ProgressBar = styled.div`
   width: 100%;
-  height: 0.5rem;
-  background-color: rgba(20, 25, 35, 0.5);
-  border-radius: 0.25rem;
-  margin: 1rem 0;
-  overflow: hidden;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2) inset;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2.5px;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 0.5rem;
+  
+  &:hover {
+    height: 8px;
+    border-radius: 4px;
+    
+    &::before {
+      transform: scale(1.2);
+    }
+  }
+  
+  &::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--space-star, #fef08a);
+    top: 50%;
+    left: ${props => props.progress || 0}%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+    transition: transform 0.2s ease;
+    z-index: 2;
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    height: 100%;
+    width: ${props => props.progress || 0}%;
+    background: var(--space-star, #fef08a);
+    background-image: linear-gradient(to right, rgba(254, 240, 138, 0.8), rgba(254, 240, 138, 1));
+    border-radius: inherit;
+    z-index: 1;
+  }
 `;
 
 const ProgressFill = styled.div`
@@ -364,6 +411,8 @@ const MessageSender = styled.span`
 const MessageTime = styled.span`
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.5);
+  margin-left: auto;
+  white-space: nowrap;
 `;
 
 const MessageContent = styled.div`
@@ -400,7 +449,109 @@ const ChatInput = styled.input`
   }
 `;
 
+// Add a component for the seek bar tooltip
+const SeekTooltip = styled.div`
+  position: absolute;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--space-star, #fef08a);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-100%);
+  margin-top: -8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+  white-space: nowrap;
+  
+  ${props => props.isVisible && `
+    opacity: 1;
+  `}
+`;
+
+// Add missing VolumeControl component
+const VolumeControl = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 120px;
+  
+  @media (max-width: 768px) {
+    width: 100px;
+  }
+  
+  @media (max-width: 576px) {
+    width: 32px;
+    
+    // Hide slider on small screens, only show mute button
+    input {
+      display: none;
+    }
+  }
+`;
+
+const VolumeSlider = styled.input.attrs({ type: 'range' })`
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  background: rgba(222, 226, 230, 0.3);
+  outline: none;
+  border-radius: 2px;
+  cursor: pointer;
+  
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--space-star, #fef08a);
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+  }
+  
+  &::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+  }
+  
+  &:hover {
+    &::-webkit-slider-thumb {
+      transform: scale(1.1);
+      box-shadow: 0 0 8px rgba(254, 240, 138, 0.9);
+    }
+  }
+`;
+
+// Control button style
+const ControlButton = styled(motion.button)`
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+  
+  &:hover {
+    opacity: 1;
+    background: rgba(254, 240, 138, 0.15);
+  }
+  
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 function formatTime(seconds) {
+  if (!seconds || isNaN(seconds)) return '0:00';
+  
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -410,6 +561,49 @@ function formatTime(seconds) {
     h > 0 ? (m < 10 ? '0' + m : m) : m,
     s < 10 ? '0' + s : s
   ].filter(Boolean).join(':');
+}
+
+// Add a new function for formatting chat message times in a user-friendly way
+function formatChatTime(timestamp) {
+  if (!timestamp) return '';
+  
+  const messageDate = new Date(timestamp);
+  const now = new Date();
+  
+  // Calculate difference in seconds
+  const diffInSeconds = Math.floor((now - messageDate) / 1000);
+  
+  // Just now: less than 1 minute ago
+  if (diffInSeconds < 60) {
+    return 'just now';
+  }
+  
+  // X minutes ago: less than 1 hour
+  if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${minutes} ${minutes === 1 ? 'min' : 'mins'} ago`;
+  }
+  
+  // Today: show time only
+  if (messageDate.toDateString() === now.toDateString()) {
+    return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  
+  // Yesterday: show "Yesterday" + time
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (messageDate.toDateString() === yesterday.toDateString()) {
+    return `Yesterday, ${messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  
+  // Older: show date + time
+  return messageDate.toLocaleDateString([], { 
+    month: 'short', 
+    day: 'numeric'
+  }) + ', ' + messageDate.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 }
 
 function Room() {
@@ -427,6 +621,7 @@ function Room() {
   const isSeeking = useRef(false);
   const ignoreNextPlayEvent = useRef(false);
   const ignorePauseEvent = useRef(false);
+  const videoContainerRef = useRef(null);
   
   // State
   const [room, setRoom] = useState(null);
@@ -439,6 +634,10 @@ function Room() {
   const [duration, setDuration] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
+  const [seekTooltip, setSeekTooltip] = useState({ visible: false, time: 0, position: 0 });
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Generate stars for background
   const randomStars = Array.from({ length: 15 }, (_, i) => ({
@@ -540,6 +739,7 @@ function Room() {
         return;
       }
       
+      setIsPlaying(true);
       isPlayingRef.current = true;
       socketRef.current.emit('playbackControl', {
         roomId,
@@ -554,6 +754,7 @@ function Room() {
         return;
       }
       
+      setIsPlaying(false);
       isPlayingRef.current = false;
       socketRef.current.emit('playbackControl', {
         roomId,
@@ -573,6 +774,7 @@ function Room() {
     };
     
     const handleEnded = () => {
+      setIsPlaying(false);
       isPlayingRef.current = false;
     };
     
@@ -690,9 +892,113 @@ function Room() {
     if (!videoRef.current) return;
     
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
     } else {
       videoRef.current.pause();
+    }
+  };
+  
+  const handleSeekTo = (seekTime) => {
+    if (!videoRef.current) return;
+    
+    isSeeking.current = true;
+    
+    // Update local state
+    setCurrentTime(seekTime);
+    
+    // Set video time
+    videoRef.current.currentTime = seekTime;
+    
+    // Notify others about seek
+    socketRef.current.emit('playbackControl', {
+      roomId,
+      action: 'seek',
+      currentTime: seekTime
+    });
+    
+    isSeeking.current = false;
+  };
+  
+  // Add an interval to refresh chat message timestamps every minute
+  useEffect(() => {
+    // Create a refresh interval
+    const timeUpdateInterval = setInterval(() => {
+      // Force a re-render to update relative timestamps
+      setChatMessages(prevMessages => [...prevMessages]);
+    }, 60000); // Update every minute
+    
+    // Clean up on unmount
+    return () => clearInterval(timeUpdateInterval);
+  }, []);
+  
+  // Add the function to handle seek bar hover
+  const handleSeekBarHover = (e) => {
+    if (!videoRef.current || !duration) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const position = (e.clientX - rect.left) / rect.width;
+    const hoverTime = position * duration;
+    
+    setSeekTooltip({
+      visible: true,
+      time: hoverTime,
+      position: e.clientX - rect.left
+    });
+  };
+  
+  // Handle volume change
+  const handleVolumeChange = (e) => {
+    if (!videoRef.current) return;
+    
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    videoRef.current.volume = newVolume;
+  };
+  
+  // Handle fullscreen toggle
+  const toggleFullscreen = () => {
+    if (!videoContainerRef.current) return;
+    
+    if (!document.fullscreenElement) {
+      videoContainerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+  
+  // Add effect to detect fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+  
+  // Handle mute toggle
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    
+    videoRef.current.muted = !videoRef.current.muted;
+    setVolume(videoRef.current.muted ? 0 : 1);
+  };
+  
+  // Fix the getVolumeIcon function
+  const getVolumeIcon = () => {
+    if (videoRef.current?.muted || volume === 0) {
+      return <FaVolumeMute />;
+    } else if (volume < 0.5) {
+      return <FaVolumeDown />;
+    } else {
+      return <FaVolumeUp />;
     }
   };
   
@@ -765,14 +1071,85 @@ function Room() {
         
         <RoomMain>
           <VideoSection>
-            <VideoContainer>
+            <VideoContainer ref={videoContainerRef}>
               {room.videoInfo ? (
-                <video 
-                  ref={videoRef}
-                  src={room.videoInfo.path}
-                  controls={false}
-                  playsInline
-                />
+                <>
+                  <video 
+                    ref={videoRef}
+                    src={room.videoInfo.path}
+                    controls={false}
+                    playsInline
+                    onClick={handlePlayPause}
+                  />
+                  
+                  <VideoPlayerControls>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <ProgressBar 
+                        progress={(currentTime / duration) * 100 || 0}
+                        onClick={(e) => {
+                          if (!videoRef.current || !duration) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const position = (e.clientX - rect.left) / rect.width;
+                          const seekTime = position * duration;
+                          handleSeekTo(seekTime);
+                        }}
+                        onMouseMove={handleSeekBarHover}
+                        onMouseLeave={() => setSeekTooltip({ ...seekTooltip, visible: false })}
+                      />
+                      {duration > 0 && (
+                        <SeekTooltip 
+                          isVisible={seekTooltip.visible} 
+                          style={{ left: `${seekTooltip.position}px` }}
+                        >
+                          {formatTime(seekTooltip.time)}
+                        </SeekTooltip>
+                      )}
+                    </div>
+                    
+                    <ControlsRow>
+                      <ControlButton 
+                        onClick={handlePlayPause}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        {isPlaying ? <FaPause /> : <FaPlay />}
+                      </ControlButton>
+                      
+                      <TimeDisplay>
+                        <span>{formatTime(currentTime || 0)}</span>
+                        <span className="opacity-50 mx-1">/</span>
+                        <span>{formatTime(duration || 0)}</span>
+                      </TimeDisplay>
+                      
+                      <VolumeControl>
+                        <ControlButton 
+                          onClick={toggleMute}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          {getVolumeIcon()}
+                        </ControlButton>
+                        <VolumeSlider 
+                          min={0} 
+                          max={1} 
+                          step={0.01}
+                          value={volume}
+                          onChange={handleVolumeChange}
+                        />
+                      </VolumeControl>
+                      
+                      <div className="flex-1"></div>
+                      
+                      <ControlButton 
+                        onClick={toggleFullscreen}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        {isFullscreen ? <FaCompress /> : <FaExpand />}
+                      </ControlButton>
+                    </ControlsRow>
+                  </VideoPlayerControls>
+                </>
               ) : (
                 <VideoPlaceholder>
                   <motion.div
@@ -799,27 +1176,6 @@ function Room() {
                 </VideoPlaceholder>
               )}
             </VideoContainer>
-            
-            {room.videoInfo && (
-              <VideoControls>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <ControlButton onClick={handlePlayPause}>
-                    {videoRef.current?.paused ? '▶' : '⏸️'}
-                  </ControlButton>
-                </motion.div>
-                
-                <TimeDisplay>{formatTime(currentTime)}</TimeDisplay>
-                
-                <SeekBar 
-                  min={0} 
-                  max={duration} 
-                  value={currentTime}
-                  onChange={handleSeekBarChange}
-                />
-                
-                <TimeDisplay>{formatTime(duration)}</TimeDisplay>
-              </VideoControls>
-            )}
           </VideoSection>
           
           <SidePanel>
@@ -910,7 +1266,7 @@ function Room() {
                             {msg.sender} {msg.sender === userName && '(You)'}
                           </MessageSender>
                           <MessageTime>
-                            {new Date(msg.timestamp).toLocaleTimeString()}
+                            {formatChatTime(msg.timestamp)}
                           </MessageTime>
                         </div>
                         <MessageContent>{msg.message}</MessageContent>

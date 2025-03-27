@@ -63,6 +63,8 @@ app.post('/api/rooms', (req, res) => {
   rooms[roomId] = {
     id: roomId,
     host: req.body.hostName || 'Anonymous',
+    name: req.body.roomName || 'Untitled Planet',
+    theme: req.body.roomTheme || 'General',
     createdAt: new Date(),
     viewers: [],
     videoInfo: null,
@@ -76,6 +78,8 @@ app.post('/api/rooms', (req, res) => {
   res.status(201).json({ 
     success: true, 
     roomId, 
+    roomName: rooms[roomId].name,
+    roomTheme: rooms[roomId].theme,
     message: 'Room created successfully' 
   });
 });
@@ -150,17 +154,41 @@ io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
   
   // Join a room
-  socket.on('joinRoom', ({ roomId, userName }) => {
+  socket.on('joinRoom', ({ roomId, userName, visitorId }) => {
     if (!rooms[roomId]) {
       socket.emit('error', { message: 'Room not found' });
       return;
     }
     
-    // Add to room
+    // Store visitorId in socket for reference
+    socket.visitorId = visitorId;
+    
+    // Check if this user is already in the room (page refresh case)
+    const existingViewerIndex = rooms[roomId].viewers.findIndex(v => v.visitorId === visitorId);
+    
+    if (existingViewerIndex !== -1) {
+      // Update existing viewer's socket ID
+      const existingViewer = rooms[roomId].viewers[existingViewerIndex];
+      console.log(`Visitor ${visitorId} (${userName}) reconnected, replacing socket ${existingViewer.id} with ${socket.id}`);
+      
+      // Update the socket ID but keep the visitor ID and name
+      existingViewer.id = socket.id;
+      
+      // Add to socket.io room
+      socket.join(roomId);
+      
+      // Send current room state to the reconnected user
+      socket.emit('roomState', rooms[roomId]);
+      
+      return;
+    }
+    
+    // Add to room (new user)
     socket.join(roomId);
     
     const viewer = {
       id: socket.id,
+      visitorId: visitorId, // Store the visitor ID
       name: userName || 'Anonymous',
       joinedAt: new Date()
     };
@@ -173,7 +201,7 @@ io.on('connection', (socket) => {
     // Broadcast to others in the room
     socket.to(roomId).emit('userJoined', viewer);
     
-    console.log(`${viewer.name} joined room ${roomId}`);
+    console.log(`${viewer.name} (${visitorId}) joined room ${roomId}`);
   });
   
   // Handle playback control events
@@ -216,12 +244,13 @@ io.on('connection', (socket) => {
   });
   
   // Handle chat messages
-  socket.on('chatMessage', ({ roomId, message, sender }) => {
+  socket.on('chatMessage', ({ roomId, message, sender, visitorId }) => {
     if (!rooms[roomId]) return;
     
     const chatMessage = {
       id: Date.now(),
       sender: sender || 'Anonymous',
+      visitorId: visitorId, // Include the visitorId in the message
       message,
       timestamp: new Date()
     };
@@ -244,6 +273,22 @@ io.on('connection', (socket) => {
     // Remove user from all rooms they were in
     Object.keys(rooms).forEach(roomId => {
       const room = rooms[roomId];
+      
+      // If the socket had a visitorId, check that no other socket is using the same visitorId
+      // before removing the viewer
+      if (socket.visitorId) {
+        // Check if there are other active sockets with the same visitorId
+        const hasOtherConnection = Array.from(io.sockets.sockets.values()).some(s => 
+          s.id !== socket.id && s.visitorId === socket.visitorId && s.rooms?.has(roomId)
+        );
+        
+        if (hasOtherConnection) {
+          console.log(`User ${socket.visitorId} has other active connections, not removing from viewers`);
+          return; // Skip removing this user
+        }
+      }
+      
+      // Find viewer by socket ID
       const viewerIndex = room.viewers.findIndex(v => v.id === socket.id);
       
       if (viewerIndex !== -1) {
@@ -253,10 +298,11 @@ io.on('connection', (socket) => {
         // Notify others
         socket.to(roomId).emit('userLeft', { 
           id: socket.id, 
+          visitorId: viewer.visitorId,
           name: viewer.name 
         });
         
-        console.log(`${viewer.name} left room ${roomId}`);
+        console.log(`${viewer.name} (${viewer.visitorId}) left room ${roomId}`);
       }
     });
   });

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaGlobeAsia, FaSatellite, FaCopy, FaRocket } from 'react-icons/fa';
+import { FaGlobeAsia, FaSatellite, FaCopy, FaRocket, FaTag, FaPalette } from 'react-icons/fa';
 import Card from '../components/Card';
 
 function CreateRoom() {
   const navigate = useNavigate();
   const [hostName, setHostName] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [roomTheme, setRoomTheme] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [roomCreated, setRoomCreated] = useState(false);
@@ -25,6 +27,8 @@ function CreateRoom() {
         },
         body: JSON.stringify({
           hostName: hostName.trim() || 'Anonymous',
+          roomName: roomName.trim() || 'Untitled Planet',
+          roomTheme: roomTheme.trim() || 'General',
         }),
       });
       
@@ -39,6 +43,8 @@ function CreateRoom() {
       setRoomInfo({
         roomId: data.roomId,
         roomLink: `${window.location.origin}/room/${data.roomId}`,
+        roomName: data.roomName,
+        roomTheme: data.roomTheme,
       });
       setRoomCreated(true);
       
@@ -65,7 +71,11 @@ function CreateRoom() {
   const goToRoom = () => {
     if (!roomInfo) return;
     navigate(`/room/${roomInfo.roomId}`, { 
-      state: { userName: hostName.trim() || 'Anonymous' } 
+      state: { 
+        userName: hostName.trim() || 'Anonymous',
+        roomName: roomInfo.roomName,
+        roomTheme: roomInfo.roomTheme
+      } 
     });
   };
 
@@ -147,6 +157,20 @@ function CreateRoom() {
                 
                 <div className="space-border border p-4 rounded-lg relative bg-space-dark/50">
                   <label className="block mb-2 text-sm font-medium text-slate-400">
+                    Planet Name
+                  </label>
+                  <div className="text-xl font-medium text-center mb-2 text-space-star">
+                    {roomInfo.roomName}
+                  </div>
+                  
+                  <label className="block mb-2 text-sm font-medium text-slate-400">
+                    Planet Theme
+                  </label>
+                  <div className="text-sm text-center mb-4 text-slate-300">
+                    {roomInfo.roomTheme}
+                  </div>
+                  
+                  <label className="block mb-2 text-sm font-medium text-slate-400">
                     Planet ID
                   </label>
                   <div className="text-3xl font-mono text-center mb-2 font-bold tracking-widest text-space-star">
@@ -190,6 +214,40 @@ function CreateRoom() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="roomName" className="block mb-2 font-medium text-slate-300">
+                    Planet Name
+                  </label>
+                  <div className="relative">
+                    <FaTag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="roomName"
+                      type="text"
+                      placeholder="Enter a name for your planet"
+                      value={roomName}
+                      onChange={(e) => setRoomName(e.target.value)}
+                      className="form-input pl-10"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="roomTheme" className="block mb-2 font-medium text-slate-300">
+                    Planet Theme
+                  </label>
+                  <div className="relative">
+                    <FaPalette className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="roomTheme"
+                      type="text"
+                      placeholder="Movie night, Study session, etc."
+                      value={roomTheme}
+                      onChange={(e) => setRoomTheme(e.target.value)}
+                      className="form-input pl-10"
+                    />
+                  </div>
+                </div>
+                
                 <div>
                   <label htmlFor="hostName" className="block mb-2 font-medium text-slate-300">
                     Explorer Name
