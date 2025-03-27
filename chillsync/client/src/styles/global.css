@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #0284c7;
+  --primary-hover: #0369a1;
+  --secondary-color: #d946ef;
+  --dark-color: #0f172a;
+  --light-color: #F5F6FA;
+  --danger-color: #ef4444;
+  --success-color: #10b981;
+  --grey-color: #94a3b8;
+  --dark-grey: #475569;
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  --shadow-md: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+  --shadow-lg: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+  
+  --border-radius: 8px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Space animation keyframes */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.8), 0 0 30px rgba(56, 189, 248, 0.5); }
+}
+
+@layer base {
+  html, body {
+    @apply h-full font-space text-base text-slate-100 bg-space-darker antialiased;
+    background-image: radial-gradient(ellipse at top, #0f172a 0%, #020617 70%);
+  }
+
+  #root {
+    @apply h-full flex flex-col;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='1' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='40' cy='70' r='1' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='80' cy='30' r='1' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='50' cy='50' r='0.5' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='10' cy='90' r='0.5' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='90' cy='10' r='0.5' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='30' cy='40' r='0.5' fill='%23fef08a' fill-opacity='0.4'/%3E%3Ccircle cx='70' cy='60' r='0.5' fill='%23fef08a' fill-opacity='0.4'/%3E%3C/svg%3E");
+  }
+
+  a {
+    @apply text-primary-400 no-underline transition-colors duration-200;
+  }
+
+  a:hover {
+    @apply text-primary-300 underline;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply cursor-pointer border-none rounded-lg px-6 py-3 font-medium text-base transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-primary-500 text-white hover:bg-primary-600 shadow-md hover:shadow-glow;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary-500 text-white hover:bg-secondary-600 hover:shadow-neon-purple;
+  }
+
+  .btn-danger {
+    @apply bg-space-mars text-white hover:bg-red-600;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border border-primary-400 text-primary-400 hover:bg-primary-400/10 hover:border-primary-300 hover:text-primary-300;
+  }
+
+  .form-input {
+    @apply font-space py-3 px-4 border border-dark-700 bg-dark-800/80 rounded text-base w-full text-slate-100 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20;
+  }
+
+  .container {
+    @apply w-full max-w-7xl mx-auto px-4;
+  }
+
+  /* Space themed components */
+  .space-card {
+    @apply bg-space-dark/80 backdrop-blur-md border border-primary-800/50 rounded-lg p-6 shadow-lg;
+  }
+
+  .planet {
+    @apply rounded-full relative overflow-hidden;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .satellite {
+    @apply absolute w-3 h-3 bg-space-moon rounded-full;
+    animation: orbit 20s linear infinite;
+  }
+
+  .star {
+    @apply absolute bg-space-star rounded-full;
+    animation: twinkle 3s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    @apply bg-space-dark/40 backdrop-blur-sm border border-primary-900/50;
+  }
+  
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-secondary-500;
+  }
+
+  .space-border {
+    @apply border border-primary-700/50;
+  }
+
+  .glow {
+    @apply shadow-glow;
+  }
+}
+
+/* Responsive overrides */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 0 0.5rem;
+  }
+  
+  .btn {
+    padding: 0.6rem 1.2rem;
+  }
+} 
