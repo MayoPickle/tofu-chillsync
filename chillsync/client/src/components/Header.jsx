@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { HiOutlineVideoCamera, HiMenuAlt3, HiX } from 'react-icons/hi'
-import { FaRocket, FaSatellite } from 'react-icons/fa'
+import { FaRocket, FaSatellite, FaGlobeAsia } from 'react-icons/fa'
 import { useState } from 'react'
 
 function Header() {
@@ -20,11 +20,11 @@ function Header() {
           >
             <Link to="/" className="flex items-center gap-3 text-2xl font-bold text-white no-underline group">
               <motion.div 
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-secondary-600 shadow-glow overflow-hidden"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-space-star/60 shadow-glow overflow-hidden"
                 whileHover={{ 
                   scale: 1.1, 
                   rotate: 10,
-                  boxShadow: '0 0 15px rgba(56, 189, 248, 0.8), 0 0 30px rgba(56, 189, 248, 0.5)' 
+                  boxShadow: '0 0 15px rgba(254, 240, 138, 0.5), 0 0 30px rgba(254, 240, 138, 0.3)' 
                 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
@@ -41,11 +41,11 @@ function Header() {
                 </motion.div>
               </motion.div>
               <div className="flex flex-col">
-                <span className="text-gradient font-space font-bold tracking-wide">ChillSync</span>
+                <span className="text-space-star font-space font-bold tracking-wide">ChillSync</span>
                 <span className="text-xs text-slate-400 -mt-1">Space Station</span>
               </div>
               <motion.div 
-                className="absolute w-2 h-2 bg-primary-300 rounded-full -top-0.5 left-6 opacity-80"
+                className="absolute w-2 h-2 bg-space-star rounded-full -top-0.5 left-6 opacity-80"
                 animate={{ 
                   scale: [1, 1.5, 1],
                   opacity: [0.7, 1, 0.7],
@@ -62,8 +62,8 @@ function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
             <NavLink to="/">Mission Control</NavLink>
-            <NavLink to="/create">Launch Theater</NavLink>
-            <Link to="/create" className="btn btn-primary group">
+            <NavLink to="/create">Planet Explorer</NavLink>
+            <Link to="/create" className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]">
               <span className="flex items-center gap-2">
                 <motion.span
                   animate={{ rotate: 360 }}
@@ -74,16 +74,16 @@ function Header() {
                   }}
                   className="inline-block"
                 >
-                  <FaSatellite className="text-sm opacity-80 group-hover:opacity-100" />
+                  <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
                 </motion.span>
-                <span>Start Mission</span>
+                <span>Host a Planet</span>
               </span>
             </Link>
           </nav>
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden text-slate-200 focus:outline-none"
+            className="md:hidden text-slate-200 focus:outline-none hover:text-space-star"
             onClick={toggleMenu}
             aria-label="Toggle menu"
           >
@@ -107,10 +107,10 @@ function Header() {
         >
           <div className="container py-4 flex flex-col gap-4">
             <NavLink to="/" onClick={toggleMenu}>Mission Control</NavLink>
-            <NavLink to="/create" onClick={toggleMenu}>Launch Theater</NavLink>
+            <NavLink to="/create" onClick={toggleMenu}>Planet Explorer</NavLink>
             <Link 
               to="/create" 
-              className="btn btn-primary w-full text-center group"
+              className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]"
               onClick={toggleMenu}
             >
               <span className="flex items-center justify-center gap-2">
@@ -123,9 +123,9 @@ function Header() {
                   }}
                   className="inline-block"
                 >
-                  <FaSatellite className="text-sm opacity-80 group-hover:opacity-100" />
+                  <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
                 </motion.span>
-                <span>Start Mission</span>
+                <span>Host a Planet</span>
               </span>
             </Link>
           </div>
@@ -138,13 +138,21 @@ function Header() {
 // NavLink component with active state styling
 function NavLink({ to, children, onClick }) {
   return (
-    <Link 
-      to={to} 
-      className="text-slate-300 font-medium hover:text-primary-300 transition-colors duration-200 tracking-wide"
-      onClick={onClick}
-    >
-      {children}
-    </Link>
+    <motion.div className="relative">
+      <Link 
+        to={to} 
+        className="text-slate-300 font-medium hover:text-space-star transition-all duration-200 tracking-wide px-1 py-1"
+        onClick={onClick}
+        whileHover={{ y: -1 }}
+      >
+        {children}
+        <motion.div
+          className="absolute -bottom-1 left-0 h-0.5 bg-space-star/70 w-0"
+          whileHover={{ width: '100%' }}
+          transition={{ duration: 0.2 }}
+        />
+      </Link>
+    </motion.div>
   )
 }
 

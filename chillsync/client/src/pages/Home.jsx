@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiOutlinePlay, HiOutlineArrowRight, HiOutlineUserGroup } from 'react-icons/hi';
 import { FaRocket, FaSatellite, FaSpaceShuttle, FaGlobeAsia, FaMeteor } from 'react-icons/fa';
+import Card from '../components/Card';
 
 function Home() {
   const navigate = useNavigate();
@@ -130,15 +131,15 @@ function Home() {
             className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight font-space tracking-wide"
             variants={itemVariants}
           >
-            <span className="text-gradient">Cosmic Video</span> Exploration with Friends
+            <span className="text-space-star">Cosmic Video</span> Exploration with Friends
           </motion.h1>
           
           <motion.p 
             className="text-lg text-slate-300 mb-8 max-w-xl"
             variants={itemVariants}
           >
-            Launch your own viewing station, invite fellow space travelers, and 
-            experience interstellar synchronization across the galaxy.
+            Join planets across the galaxy, connect with fellow explorers, and 
+            experience synchronized adventures in cosmic harmony.
           </motion.p>
           
           <motion.div 
@@ -147,17 +148,17 @@ function Home() {
           >
             <Link 
               to="/create" 
-              className="btn btn-primary flex items-center justify-center gap-2 shadow-glow"
+              className="btn btn-primary flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(254,240,138,0.3)]"
             >
-              <FaRocket className="text-sm" />
-              Launch Station
+              <FaGlobeAsia className="text-sm" />
+              Host a Planet
             </Link>
             <a 
               href="#join" 
               className="btn btn-outline flex items-center justify-center gap-2"
             >
               <FaSatellite className="text-sm" />
-              Join Expedition
+              Explore Planets
             </a>
           </motion.div>
           
@@ -166,7 +167,7 @@ function Home() {
             variants={itemVariants}
           >
             <div className="flex flex-col items-center">
-              <div className="font-bold text-2xl text-primary-400 mb-1 flex items-center">
+              <div className="font-bold text-2xl text-space-star mb-1 flex items-center">
                 <motion.span 
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
@@ -179,14 +180,14 @@ function Home() {
               <div className="text-sm">Quantum Sync</div>
             </div>
             <div className="flex flex-col items-center">
-              <div className="font-bold text-2xl text-secondary-500 mb-1 flex items-center">
+              <div className="font-bold text-2xl text-space-star mb-1 flex items-center">
                 <FaGlobeAsia className="mr-2 text-lg" />
                 Universal
               </div>
               <div className="text-sm">Compatibility</div>
             </div>
             <div className="flex flex-col items-center">
-              <div className="font-bold text-2xl text-space-venus mb-1 flex items-center">
+              <div className="font-bold text-2xl text-space-star mb-1 flex items-center">
                 <FaSpaceShuttle className="mr-2 text-lg" />
                 Free
               </div>
@@ -203,33 +204,21 @@ function Home() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.3 }}
         >
-          <div className="space-card backdrop-blur-md border border-primary-800/30 relative overflow-hidden">
-            {/* Orbiting satellite */}
-            <motion.div
-              className="absolute w-4 h-4 bg-space-moon rounded-full top-0 right-0"
-              initial={{ scale: 0.8 }}
-              animate={{ 
-                rotate: 360,
-                translateX: -20,
-                translateY: 20,
-              }}
-              transition={{ 
-                rotate: { repeat: Infinity, duration: 8, ease: "linear" },
-                scale: { repeat: Infinity, duration: 2, repeatType: "reverse" }
-              }}
-            />
-            
-            <h2 className="text-2xl font-bold mb-6 text-center text-gradient">Join a Space Mission</h2>
-            
+          <Card 
+            variant="highlighted" 
+            title="Join a Planet"
+            icon={<FaGlobeAsia />}
+            className="backdrop-blur-md"
+          >
             <form onSubmit={handleJoinRoom} className="space-y-5">
               <div>
                 <label htmlFor="roomId" className="block mb-2 font-medium text-slate-300">
-                  Mission ID
+                  Planet ID
                 </label>
                 <input
                   id="roomId"
                   type="text"
-                  placeholder="Enter mission code"
+                  placeholder="Enter planet code"
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                   className="form-input"
@@ -238,7 +227,7 @@ function Home() {
               
               <div>
                 <label htmlFor="userName" className="block mb-2 font-medium text-slate-300">
-                  Astronaut Name
+                  Explorer Name
                 </label>
                 <input
                   id="userName"
@@ -268,11 +257,11 @@ function Home() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Launch Now
+                Join Now
                 <HiOutlineArrowRight />
               </motion.button>
             </form>
-          </div>
+          </Card>
         </motion.div>
       </div>
     </div>

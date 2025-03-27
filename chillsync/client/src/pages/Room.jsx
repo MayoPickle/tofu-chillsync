@@ -2,12 +2,32 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import io from 'socket.io-client';
+import { motion } from 'framer-motion';
+import { FaRocket, FaSatellite, FaGlobeAsia, FaUpload, FaUsers, FaComments, FaPaperPlane } from 'react-icons/fa';
 
 const RoomContainer = styled.div`
   padding: 2rem 0;
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
+`;
+
+const StarsBackground = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+`;
+
+const Star = styled(motion.div)`
+  position: absolute;
+  background-color: var(--space-star, #fef08a);
+  border-radius: 50%;
 `;
 
 const RoomHeader = styled.div`
@@ -26,12 +46,15 @@ const RoomHeader = styled.div`
 const RoomTitle = styled.h1`
   font-size: 1.75rem;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 `;
 
 const RoomId = styled.span`
   font-size: 1rem;
   font-weight: normal;
-  color: var(--dark-grey);
+  color: var(--space-star, #fef08a);
   margin-left: 0.5rem;
 `;
 
@@ -48,12 +71,19 @@ const RoomMain = styled.div`
 `;
 
 const VideoSection = styled.div`
-  background-color: white;
+  background-color: rgba(13, 17, 23, 0.7);
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 25px rgba(254, 240, 138, 0.15);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(254, 240, 138, 0.15);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 0 30px rgba(254, 240, 138, 0.2);
+  }
 `;
 
 const VideoContainer = styled.div`
@@ -87,8 +117,9 @@ const VideoControls = styled.div`
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background-color: #F8F9FA;
-  border-top: 1px solid #E9ECEF;
+  background-color: rgba(13, 17, 23, 0.7);
+  border-top: 1px solid rgba(254, 240, 138, 0.15);
+  transition: opacity 0.3s ease;
 `;
 
 const ControlButton = styled.button`
@@ -101,38 +132,60 @@ const ControlButton = styled.button`
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
   
   &:hover {
     background-color: var(--primary-hover);
+    box-shadow: 0 0 15px rgba(254, 240, 138, 0.5);
+    transform: scale(1.05);
   }
   
   &:disabled {
     background-color: var(--grey-color);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 `;
 
 const TimeDisplay = styled.div`
   font-family: monospace;
   font-size: 0.875rem;
-  color: var(--dark-grey);
+  color: var(--space-star, #fef08a);
+  opacity: 0.9;
 `;
 
 const SeekBar = styled.input.attrs({ type: 'range' })`
   flex: 1;
-  height: 4px;
+  height: 6px;
   appearance: none;
-  background: #DEE2E6;
+  background: rgba(222, 226, 230, 0.3);
   outline: none;
-  border-radius: 2px;
+  border-radius: 3px;
+  cursor: pointer;
   
   &::-webkit-slider-thumb {
     appearance: none;
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--primary-color);
+    background: var(--space-star, #fef08a);
     cursor: pointer;
+    box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+  }
+  
+  &::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+  }
+  
+  &:hover {
+    &::-webkit-slider-thumb {
+      transform: scale(1.1);
+      box-shadow: 0 0 8px rgba(254, 240, 138, 0.9);
+    }
   }
 `;
 
@@ -143,16 +196,28 @@ const SidePanel = styled.div`
 `;
 
 const Card = styled.div`
-  background-color: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-sm);
+  background-color: rgba(13, 17, 23, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(254, 240, 138, 0.1);
   overflow: hidden;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(254, 240, 138, 0.15);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 0 25px rgba(254, 240, 138, 0.15);
+    transform: translateY(-2px);
+  }
 `;
 
 const CardHeader = styled.div`
   padding: 1rem;
-  border-bottom: 1px solid #E9ECEF;
+  border-bottom: 1px solid rgba(254, 240, 138, 0.1);
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--space-star, #fef08a);
 `;
 
 const CardBody = styled.div`
@@ -163,22 +228,49 @@ const ViewersList = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 `;
 
 const ViewerItem = styled.li`
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #E9ECEF;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background-color: rgba(20, 25, 35, 0.5);
+  border: 1px solid rgba(254, 240, 138, 0.1);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   
-  &:last-child {
-    border-bottom: none;
+  &:hover {
+    background-color: rgba(30, 35, 45, 0.5);
+    border-color: rgba(254, 240, 138, 0.2);
+  }
+  
+  &::before {
+    content: '';
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    margin-right: 0.5rem;
   }
 `;
 
 const FileUploadSection = styled.div`
   padding: 1.5rem;
-  border: 2px dashed #DEE2E6;
-  border-radius: var(--border-radius);
+  border: 2px dashed rgba(254, 240, 138, 0.3);
+  border-radius: 12px;
   text-align: center;
+  transition: all 0.3s ease;
+  background-color: rgba(20, 25, 35, 0.3);
+  
+  &:hover {
+    border-color: var(--space-star, #fef08a);
+    box-shadow: 0 0 15px rgba(254, 240, 138, 0.2) inset;
+  }
 `;
 
 const UploadInput = styled.input`
@@ -189,76 +281,122 @@ const UploadLabel = styled.label`
   cursor: pointer;
   display: block;
   margin-bottom: 1rem;
+  transition: all 0.3s ease;
+  color: #fff;
+  
+  &:hover {
+    color: var(--space-star, #fef08a);
+  }
 `;
 
 const ProgressBar = styled.div`
   width: 100%;
   height: 0.5rem;
-  background-color: #E9ECEF;
+  background-color: rgba(20, 25, 35, 0.5);
   border-radius: 0.25rem;
   margin: 1rem 0;
   overflow: hidden;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2) inset;
 `;
 
 const ProgressFill = styled.div`
   height: 100%;
-  background-color: var(--primary-color);
   width: ${props => props.progress}%;
+  background-color: var(--space-star, #fef08a);
+  background-image: linear-gradient(to right, rgba(254, 240, 138, 0.8), rgba(254, 240, 138, 1));
+  border-radius: 0.25rem;
   transition: width 0.3s ease;
 `;
 
 const ChatSection = styled.div`
-  flex: 1;
   display: flex;
   flex-direction: column;
-  max-height: 400px;
+  flex: 1;
 `;
 
 const ChatMessages = styled.div`
   flex: 1;
-  overflow-y: auto;
   padding: 1rem;
+  overflow-y: auto;
+  max-height: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(20, 25, 35, 0.3);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(254, 240, 138, 0.3);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(254, 240, 138, 0.5);
+  }
 `;
 
 const ChatMessage = styled.div`
-  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background-color: rgba(20, 25, 35, 0.5);
+  border: 1px solid rgba(254, 240, 138, 0.1);
+  transition: all 0.2s ease;
   
-  &:last-child {
-    margin-bottom: 0;
+  &:hover {
+    border-color: rgba(254, 240, 138, 0.25);
+    background-color: rgba(30, 35, 45, 0.5);
   }
 `;
 
 const MessageSender = styled.span`
   font-weight: 500;
   margin-right: 0.5rem;
+  color: var(--space-star, #fef08a);
 `;
 
 const MessageTime = styled.span`
   font-size: 0.75rem;
-  color: var(--dark-grey);
+  color: rgba(255, 255, 255, 0.5);
 `;
 
-const MessageContent = styled.p`
-  margin: 0.25rem 0 0 0;
+const MessageContent = styled.div`
+  margin-top: 0.5rem;
+  line-height: 1.4;
 `;
 
 const ChatForm = styled.form`
   display: flex;
+  gap: 0.75rem;
   padding: 1rem;
-  border-top: 1px solid #E9ECEF;
-  gap: 0.5rem;
+  border-top: 1px solid rgba(254, 240, 138, 0.1);
+  background-color: rgba(13, 17, 23, 0.5);
 `;
 
 const ChatInput = styled.input`
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--grey-color);
-  border-radius: var(--border-radius);
-  font-size: 1rem;
+  border: 1px solid rgba(254, 240, 138, 0.2);
+  border-radius: 8px;
+  background-color: rgba(13, 17, 23, 0.7);
+  color: #fff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
   
   &:focus {
+    border-color: var(--space-star, #fef08a);
     outline: none;
-    border-color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(254, 240, 138, 0.2);
+  }
+  
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.5);
   }
 `;
 
@@ -301,6 +439,16 @@ function Room() {
   const [duration, setDuration] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
+  
+  // Generate stars for background
+  const randomStars = Array.from({ length: 15 }, (_, i) => ({
+    id: i,
+    size: Math.random() * 3 + 1,
+    top: `${Math.random() * 100}%`,
+    left: `${Math.random() * 100}%`,
+    delay: Math.random() * 5,
+    duration: Math.random() * 3 + 2
+  }));
   
   // Initialize socket connection and join room
   useEffect(() => {
@@ -553,7 +701,8 @@ function Room() {
       <div className="container">
         <RoomContainer>
           <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-            <h2>Joining room...</h2>
+            <h2 className="text-space-star">Launching to Planet...</h2>
+            <FaRocket className="text-4xl text-space-star animate-pulse mt-4" />
           </div>
         </RoomContainer>
       </div>
@@ -565,14 +714,14 @@ function Room() {
       <div className="container">
         <RoomContainer>
           <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-            <h2>Error</h2>
+            <h2 className="text-space-mars">Exploration Failed</h2>
             <p>{error}</p>
             <button 
               onClick={() => navigate('/')} 
               className="btn btn-primary"
               style={{ marginTop: '1rem' }}
             >
-              Go Home
+              Return to Base
             </button>
           </div>
         </RoomContainer>
@@ -583,9 +732,34 @@ function Room() {
   return (
     <div className="container">
       <RoomContainer>
+        <StarsBackground>
+          {randomStars.map(star => (
+            <Star
+              key={star.id}
+              style={{ 
+                width: `${star.size}px`, 
+                height: `${star.size}px`,
+                top: star.top,
+                left: star.left,
+              }}
+              animate={{ 
+                opacity: [0.3, 1, 0.3],
+                scale: [1, 1.3, 1],
+              }}
+              transition={{ 
+                repeat: Infinity, 
+                duration: star.duration,
+                delay: star.delay,
+                ease: "easeInOut" 
+              }}
+            />
+          ))}
+        </StarsBackground>
+
         <RoomHeader>
           <RoomTitle>
-            Watch Room <RoomId>#{roomId}</RoomId>
+            <FaGlobeAsia className="text-space-star" />
+            Planet Explorer <RoomId>#{roomId}</RoomId>
           </RoomTitle>
         </RoomHeader>
         
@@ -601,20 +775,38 @@ function Room() {
                 />
               ) : (
                 <VideoPlaceholder>
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM16 13H13V16C13 16.55 12.55 17 12 17C11.45 17 11 16.55 11 16V13H8C7.45 13 7 12.55 7 12C7 11.45 7.45 11 8 11H11V8C11 7.45 11.45 7 12 7C12.55 7 13 7.45 13 8V11H16C16.55 11 17 11.45 17 12C17 12.55 16.55 13 16 13Z" fill="white" fillOpacity="0.5"/>
-                  </svg>
-                  <h3 style={{ marginTop: '1rem' }}>No video uploaded yet</h3>
-                  <p>Upload a video to start watching together</p>
+                  <motion.div
+                    animate={{ 
+                      opacity: [0.6, 1, 0.6],
+                      scale: [0.98, 1.02, 0.98],
+                    }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: 3,
+                      ease: "easeInOut" 
+                    }}
+                  >
+                    <FaSatellite className="text-space-star" style={{ fontSize: '64px', opacity: 0.8 }} />
+                  </motion.div>
+                  <motion.h3 
+                    style={{ marginTop: '1rem' }}
+                    animate={{ opacity: [0.8, 1, 0.8] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  >
+                    No transmission signal yet
+                  </motion.h3>
+                  <p className="mt-2 text-gray-400">Upload a video to start exploring together</p>
                 </VideoPlaceholder>
               )}
             </VideoContainer>
             
             {room.videoInfo && (
               <VideoControls>
-                <ControlButton onClick={handlePlayPause}>
-                  {videoRef.current?.paused ? '▶' : '⏸️'}
-                </ControlButton>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <ControlButton onClick={handlePlayPause}>
+                    {videoRef.current?.paused ? '▶' : '⏸️'}
+                  </ControlButton>
+                </motion.div>
                 
                 <TimeDisplay>{formatTime(currentTime)}</TimeDisplay>
                 
@@ -632,7 +824,10 @@ function Room() {
           
           <SidePanel>
             <Card>
-              <CardHeader>Upload Video</CardHeader>
+              <CardHeader>
+                <FaUpload />
+                Transmission Upload
+              </CardHeader>
               <CardBody>
                 <FileUploadSection>
                   <UploadInput
@@ -642,28 +837,34 @@ function Room() {
                     onChange={handleFileUpload}
                     disabled={isUploading}
                   />
-                  <UploadLabel htmlFor="video-upload">
-                    {isUploading ? 
-                      'Uploading...' : 
-                      room.videoInfo ? 
-                        'Change video' : 
-                        'Click to upload video'
-                    }
-                  </UploadLabel>
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <UploadLabel htmlFor="video-upload" className="flex items-center justify-center gap-2">
+                      <FaUpload className="mr-1" />
+                      {isUploading ? 
+                        'Beaming transmission...' : 
+                        room.videoInfo ? 
+                          'Change transmission' : 
+                          'Click to upload transmission'
+                      }
+                    </UploadLabel>
+                  </motion.div>
                   
                   {room.videoInfo && !isUploading && (
-                    <div>
-                      <p style={{ marginBottom: '0.5rem', fontWeight: '500' }}>Current video:</p>
-                      <p style={{ fontSize: '0.9rem' }}>{room.videoInfo.originalName}</p>
+                    <div className="mt-3 p-3 rounded-lg bg-gray-800/30 border border-space-star/10">
+                      <p style={{ marginBottom: '0.5rem', fontWeight: '500' }} className="text-space-star/80">Current transmission:</p>
+                      <p style={{ fontSize: '0.9rem' }} className="truncate">{room.videoInfo.originalName}</p>
                     </div>
                   )}
                   
                   {isUploading && (
-                    <div>
+                    <div className="mt-3">
                       <ProgressBar>
                         <ProgressFill progress={uploadProgress} />
                       </ProgressBar>
-                      <div>{uploadProgress}%</div>
+                      <div className="text-space-star">{uploadProgress}%</div>
                     </div>
                   )}
                 </FileUploadSection>
@@ -671,15 +872,20 @@ function Room() {
             </Card>
             
             <Card>
-              <CardHeader>Viewers ({viewers.length})</CardHeader>
+              <CardHeader>
+                <FaUsers />
+                Explorers ({viewers.length})
+              </CardHeader>
               <CardBody>
                 <ViewersList>
                   {viewers.length === 0 ? (
-                    <div>No viewers connected</div>
+                    <div className="text-center p-3 text-gray-400">No explorers connected</div>
                   ) : (
                     viewers.map(viewer => (
                       <ViewerItem key={viewer.id}>
-                        {viewer.name} {viewer.id === socketRef.current?.id && '(You)'}
+                        {viewer.name} {viewer.id === socketRef.current?.id && (
+                          <span className="ml-auto text-xs px-2 py-1 bg-space-star/20 rounded-full text-space-star">You</span>
+                        )}
                       </ViewerItem>
                     ))
                   )}
@@ -688,15 +894,18 @@ function Room() {
             </Card>
             
             <Card style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <CardHeader>Chat</CardHeader>
+              <CardHeader>
+                <FaComments />
+                Space Communications
+              </CardHeader>
               <ChatSection>
                 <ChatMessages id="chat-messages">
                   {chatMessages.length === 0 ? (
-                    <div>No messages yet</div>
+                    <div className="text-center p-3 text-gray-400">No communications yet</div>
                   ) : (
                     chatMessages.map(msg => (
-                      <ChatMessage key={msg.id}>
-                        <div>
+                      <ChatMessage key={msg.id} className={msg.sender === userName ? "border-space-star/30 ml-auto max-w-[85%]" : "max-w-[85%]"}>
+                        <div className="flex justify-between items-center">
                           <MessageSender>
                             {msg.sender} {msg.sender === userName && '(You)'}
                           </MessageSender>
@@ -717,9 +926,16 @@ function Room() {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                   />
-                  <button type="submit" className="btn btn-primary">
+                  <motion.button 
+                    type="submit" 
+                    className="btn btn-primary flex items-center gap-2"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={!messageInput.trim()}
+                  >
+                    <FaPaperPlane size={12} />
                     Send
-                  </button>
+                  </motion.button>
                 </ChatForm>
               </ChatSection>
             </Card>

@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { HiOutlineHome } from 'react-icons/hi'
-import { FaRocket, FaSpaceShuttle, FaGlobeAsia } from 'react-icons/fa'
+import { FaRocket, FaSpaceShuttle, FaGlobeAsia, FaSatellite } from 'react-icons/fa'
+import Card from '../components/Card'
 
 function NotFound() {
   // Generate stars
@@ -108,9 +109,9 @@ function NotFound() {
               }}
             >
               <motion.div 
-                className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-600 to-primary-800 relative overflow-hidden flex items-center justify-center"
+                className="w-20 h-20 rounded-full bg-gradient-to-br from-space-dark to-space-dark/80 relative overflow-hidden flex items-center justify-center"
                 animate={{ 
-                  boxShadow: ['0 0 15px rgba(56, 189, 248, 0.3)', '0 0 25px rgba(56, 189, 248, 0.5)', '0 0 15px rgba(56, 189, 248, 0.3)'] 
+                  boxShadow: ['0 0 15px rgba(254, 240, 138, 0.3)', '0 0 25px rgba(254, 240, 138, 0.5)', '0 0 15px rgba(254, 240, 138, 0.3)'] 
                 }}
                 transition={{
                   repeat: Infinity,
@@ -118,13 +119,13 @@ function NotFound() {
                   ease: "easeInOut"
                 }}
               >
-                <FaGlobeAsia className="text-primary-200 text-3xl" />
-                <div className="absolute w-full h-1/2 bg-primary-900/30 top-0"></div>
+                <FaGlobeAsia className="text-space-star text-3xl" />
+                <div className="absolute w-full h-1/2 bg-space-dark/70 top-0"></div>
               </motion.div>
             </motion.div>
             
             <motion.div
-              className="absolute top-5 left-28 w-6 h-6 rounded-full bg-space-moon flex items-center justify-center"
+              className="absolute top-5 left-28 w-6 h-6 rounded-full bg-space-star/40 flex items-center justify-center"
               animate={{
                 rotate: [0, 360],
                 translateX: [-5, 5, -5],
@@ -149,7 +150,7 @@ function NotFound() {
               }}
             >
               <motion.div
-                className="w-1 h-1 rounded-full bg-white"
+                className="w-1 h-1 rounded-full bg-space-star"
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{
                   repeat: Infinity,
@@ -170,51 +171,53 @@ function NotFound() {
                 ease: "easeInOut"
               }}
             >
-              <FaRocket className="text-4xl text-space-saturn rotate-45" />
+              <FaRocket className="text-4xl text-space-star rotate-45" />
             </motion.div>
           </motion.div>
         </div>
         
-        <motion.h1 
-          className="text-6xl font-bold mb-4 text-gradient font-space"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          404
-        </motion.h1>
-        
-        <motion.h2 
-          className="text-2xl md:text-3xl font-semibold mb-6 text-slate-200 font-space"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          Space Station Not Found
-        </motion.h2>
-        
-        <motion.p
-          className="text-slate-300 text-lg mb-8 max-w-md mx-auto"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          Your spacecraft has drifted into unknown territory. This sector of space hasn't been mapped yet.
-        </motion.p>
-        
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-        >
-          <Link 
-            to="/" 
-            className="btn btn-primary inline-flex items-center gap-2 shadow-glow px-8"
+        <Card variant="highlighted" className="mb-8">
+          <motion.h1 
+            className="text-6xl font-bold mb-4 text-space-star font-space"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
           >
-            <FaSpaceShuttle />
-            Return to Base
-          </Link>
-        </motion.div>
+            404
+          </motion.h1>
+          
+          <motion.h2 
+            className="text-2xl md:text-3xl font-semibold mb-6 text-space-star/90 font-space"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            Space Station Not Found
+          </motion.h2>
+          
+          <motion.p
+            className="text-slate-300 text-lg mb-8 max-w-md mx-auto"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            Your spacecraft has drifted into unknown territory. This sector of space hasn't been mapped yet.
+          </motion.p>
+          
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            <Link 
+              to="/" 
+              className="btn btn-primary inline-flex items-center gap-2 shadow-[0_0_15px_rgba(254,240,138,0.4)] px-8"
+            >
+              <FaSpaceShuttle />
+              Return to Base
+            </Link>
+          </motion.div>
+        </Card>
       </motion.div>
     </div>
   )
