@@ -205,40 +205,26 @@ io.on('connection', (socket) => {
   });
   
   // Handle playback control events
-  socket.on('playbackControl', ({ roomId, action, currentTime }) => {
+  socket.on('playbackControl', ({ roomId, action, currentTime, isPlaying }) => {
     if (!rooms[roomId]) return;
     
     const now = Date.now();
     
-    switch (action) {
-      case 'play':
-        rooms[roomId].playbackState = {
-          isPlaying: true,
-          currentTime: currentTime || rooms[roomId].playbackState.currentTime,
-          lastUpdated: now
-        };
-        break;
-      case 'pause':
-        rooms[roomId].playbackState = {
-          isPlaying: false,
-          currentTime: currentTime || rooms[roomId].playbackState.currentTime,
-          lastUpdated: now
-        };
-        break;
-      case 'seek':
-        rooms[roomId].playbackState = {
-          isPlaying: rooms[roomId].playbackState.isPlaying,
-          currentTime: currentTime,
-          lastUpdated: now
-        };
-        break;
-    }
+    // Always use the explicit isPlaying parameter if provided
+    const newPlaybackState = {
+      isPlaying: isPlaying !== undefined ? isPlaying : (action === 'play' ? true : action === 'pause' ? false : rooms[roomId].playbackState.isPlaying),
+      currentTime: currentTime || rooms[roomId].playbackState.currentTime,
+      lastUpdated: now
+    };
+    
+    // Update room state with new playback information
+    rooms[roomId].playbackState = newPlaybackState;
     
     // Broadcast the playback state change to all clients in the room
     io.to(roomId).emit('playbackUpdate', {
       action,
-      currentTime: rooms[roomId].playbackState.currentTime,
-      isPlaying: rooms[roomId].playbackState.isPlaying,
+      currentTime: newPlaybackState.currentTime,
+      isPlaying: newPlaybackState.isPlaying,
       initiator: socket.id
     });
   });

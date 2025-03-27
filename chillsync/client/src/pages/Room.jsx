@@ -6,11 +6,12 @@ import { motion } from 'framer-motion';
 import { FaRocket, FaSatellite, FaGlobeAsia, FaUpload, FaUsers, FaComments, FaPaperPlane, FaPlay, FaPause, FaCompress, FaExpand, FaVolumeUp, FaVolumeDown, FaVolumeMute } from 'react-icons/fa';
 
 const RoomContainer = styled.div`
-  padding: 2rem 0;
+  padding: 1.5rem 0;
   flex: 1;
   display: flex;
   flex-direction: column;
   position: relative;
+  min-height: calc(100vh - 80px);
 `;
 
 const StarsBackground = styled.div`
@@ -59,15 +60,10 @@ const RoomId = styled.span`
 `;
 
 const RoomMain = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 350px;
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  flex: 1;
-  
-  @media (max-width: 992px) {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
+  width: 100%;
 `;
 
 const VideoSection = styled.div`
@@ -80,6 +76,7 @@ const VideoSection = styled.div`
   backdrop-filter: blur(12px);
   border: 1px solid rgba(254, 240, 138, 0.15);
   transition: all 0.3s ease;
+  width: 100%;
   
   &:hover {
     box-shadow: 0 0 30px rgba(254, 240, 138, 0.2);
@@ -204,7 +201,9 @@ const SeekBar = styled.input.attrs({ type: 'range' })`
 const SidePanel = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+  height: 100%;
+  overflow: hidden;
 `;
 
 const Card = styled.div`
@@ -236,7 +235,7 @@ const CardBody = styled.div`
   padding: 1rem;
 `;
 
-const ViewersList = styled.ul`
+const ViewerListOriginal = styled.ul`
   list-style: none;
   padding: 0;
   margin: 0;
@@ -245,7 +244,7 @@ const ViewersList = styled.ul`
   gap: 0.5rem;
 `;
 
-const ViewerItem = styled.li`
+const ViewerItemOriginal = styled.li`
   padding: 0.75rem;
   border-radius: 8px;
   background-color: rgba(20, 25, 35, 0.5);
@@ -359,13 +358,13 @@ const ChatSection = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0; /* Required for Firefox */
 `;
 
 const ChatMessages = styled.div`
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
-  max-height: 250px;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -470,12 +469,13 @@ const SeekTooltip = styled.div`
   `}
 `;
 
-// Add missing VolumeControl component
+// Update the VolumeControl for better visual feedback
 const VolumeControl = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
   width: 120px;
+  position: relative;
   
   @media (max-width: 768px) {
     width: 100px;
@@ -485,19 +485,33 @@ const VolumeControl = styled.div`
     width: 32px;
     
     // Hide slider on small screens, only show mute button
-    input {
+    .volume-slider-container {
       display: none;
     }
   }
 `;
 
-const VolumeSlider = styled.input.attrs({ type: 'range' })`
+// Create a custom volume slider component with progress
+const VolumeSliderContainer = styled.div`
+  position: relative;
   flex: 1;
-  height: 4px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+`;
+
+// Update the VolumeSlider with a visible progress track
+const VolumeSlider = styled.input.attrs({ type: 'range' })`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 16px;
   appearance: none;
-  background: rgba(222, 226, 230, 0.3);
+  background: transparent;
   outline: none;
-  border-radius: 2px;
+  margin: 0;
+  z-index: 2;
   cursor: pointer;
   
   &::-webkit-slider-thumb {
@@ -508,19 +522,39 @@ const VolumeSlider = styled.input.attrs({ type: 'range' })`
     background: var(--space-star, #fef08a);
     cursor: pointer;
     box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+    z-index: 3;
+    position: relative;
   }
   
-  &::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
+  &::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--space-star, #fef08a);
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+    z-index: 3;
   }
-  
-  &:hover {
-    &::-webkit-slider-thumb {
-      transform: scale(1.1);
-      box-shadow: 0 0 8px rgba(254, 240, 138, 0.9);
-    }
-  }
+`;
+
+// Add track and fill components
+const VolumeTrack = styled.div`
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: rgba(222, 226, 230, 0.3);
+  border-radius: 2px;
+`;
+
+const VolumeFill = styled.div`
+  position: absolute;
+  height: 4px;
+  width: ${props => props.value * 100}%;
+  background: var(--space-star, #fef08a);
+  background-image: linear-gradient(to right, rgba(254, 240, 138, 0.8), rgba(254, 240, 138, 1));
+  border-radius: 2px;
+  transition: width 0.1s ease;
 `;
 
 // Control button style
@@ -549,18 +583,142 @@ const ControlButton = styled(motion.button)`
   }
 `;
 
-function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
+// Create a horizontal panel for utility sections
+const ControlPanel = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+`;
+
+// Add a new styled component for the viewers dropdown
+const ViewersDropdownList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(13, 17, 23, 0.5);
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(254, 240, 138, 0.3);
+    border-radius: 2px;
+  }
+`;
+
+const ViewersDropdownItem = styled.li`
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: rgba(254, 240, 138, 0.05);
+  }
+  
+  &::before {
+    content: '';
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+  }
+  
+  &.you {
+    background-color: rgba(254, 240, 138, 0.1);
+  }
+`;
+
+// Add back the ViewersDropdown and ViewersButton components
+const ViewersDropdown = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const ViewersButton = styled.button`
+  background: rgba(13, 17, 23, 0.7);
+  border: 1px solid rgba(254, 240, 138, 0.2);
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(13, 17, 23, 0.9);
+    border-color: rgba(254, 240, 138, 0.4);
+  }
+`;
+
+const ViewersPanel = styled(motion.div)`
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: rgba(13, 17, 23, 0.95);
+  border: 1px solid rgba(254, 240, 138, 0.2);
+  border-radius: 12px;
+  width: 240px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  overflow: hidden;
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: 20px;
+    width: 12px;
+    height: 12px;
+    background: rgba(13, 17, 23, 0.95);
+    border-left: 1px solid rgba(254, 240, 138, 0.2);
+    border-top: 1px solid rgba(254, 240, 138, 0.2);
+    transform: rotate(45deg);
+  }
+`;
+
+const ViewersPanelHeader = styled.div`
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(254, 240, 138, 0.1);
+  font-weight: 500;
+  color: var(--space-star, #fef08a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+function formatTime(seconds, totalDuration = null) {
+  if (!seconds || isNaN(seconds)) return '00:00';
   
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
+
+  // Determine format based on total duration
+  const useHours = totalDuration ? totalDuration >= 3600 : h > 0;
   
-  return [
-    h > 0 ? h : null,
-    h > 0 ? (m < 10 ? '0' + m : m) : m,
-    s < 10 ? '0' + s : s
-  ].filter(Boolean).join(':');
+  if (useHours) {
+    // Format: HH:MM:SS
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  } else if (totalDuration && totalDuration >= 60 || !totalDuration && m > 0) {
+    // Format: MM:SS
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  } else {
+    // Format: 00:SS
+    return `00:${s.toString().padStart(2, '0')}`;
+  }
 }
 
 // Add a new function for formatting chat message times in a user-friendly way
@@ -638,6 +796,7 @@ function Room() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
   
   // Generate stars for background
   const randomStars = Array.from({ length: 15 }, (_, i) => ({
@@ -709,12 +868,14 @@ function Room() {
         videoRef.current.currentTime = data.currentTime;
       }
       
-      // Handle play/pause
+      // Handle play/pause with explicit state updates
       if (data.isPlaying && videoRef.current.paused) {
         ignoreNextPlayEvent.current = true;
+        setIsPlaying(true);
         videoRef.current.play().catch(err => console.error('Error playing video:', err));
       } else if (!data.isPlaying && !videoRef.current.paused) {
         ignorePauseEvent.current = true;
+        setIsPlaying(false);
         videoRef.current.pause();
       }
     });
@@ -729,37 +890,45 @@ function Room() {
   
   // Video event handlers
   useEffect(() => {
-    if (!videoRef.current || !room?.videoInfo) return;
+    if (!videoRef.current || !room?.videoInfo || !socketRef.current) return;
     
     const videoElement = videoRef.current;
     
     const handlePlay = () => {
+      // Skip if we initiated this event programmatically
       if (ignoreNextPlayEvent.current) {
         ignoreNextPlayEvent.current = false;
         return;
       }
       
+      // Update local state
       setIsPlaying(true);
-      isPlayingRef.current = true;
+      
+      // Broadcast to other clients
       socketRef.current.emit('playbackControl', {
         roomId,
         action: 'play',
-        currentTime: videoElement.currentTime
+        currentTime: videoElement.currentTime,
+        isPlaying: true
       });
     };
     
     const handlePause = () => {
+      // Skip if we initiated this event programmatically
       if (ignorePauseEvent.current) {
         ignorePauseEvent.current = false;
         return;
       }
       
+      // Update local state
       setIsPlaying(false);
-      isPlayingRef.current = false;
+      
+      // Broadcast to other clients
       socketRef.current.emit('playbackControl', {
         roomId,
         action: 'pause',
-        currentTime: videoElement.currentTime
+        currentTime: videoElement.currentTime,
+        isPlaying: false
       });
     };
     
@@ -775,7 +944,14 @@ function Room() {
     
     const handleEnded = () => {
       setIsPlaying(false);
-      isPlayingRef.current = false;
+      
+      // Notify other clients the video has ended
+      socketRef.current.emit('playbackControl', {
+        roomId,
+        action: 'pause',
+        currentTime: videoElement.duration,
+        isPlaying: false
+      });
     };
     
     // Add event listeners
@@ -793,7 +969,7 @@ function Room() {
       videoElement.removeEventListener('durationchange', handleDurationChange);
       videoElement.removeEventListener('ended', handleEnded);
     };
-  }, [roomId, room?.videoInfo]);
+  }, [roomId, room?.videoInfo, socketRef.current]);
   
   // Handle seek bar change
   const handleSeekBarChange = (e) => {
@@ -889,14 +1065,33 @@ function Room() {
   
   // Handle play/pause button click
   const handlePlayPause = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !socketRef.current) return;
     
     if (videoRef.current.paused) {
-      videoRef.current.play().catch(err => {
+      // Play the video and update state locally
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+        // Notify other clients
+        socketRef.current.emit('playbackControl', {
+          roomId,
+          action: 'play',
+          currentTime: videoRef.current.currentTime,
+          isPlaying: true
+        });
+      }).catch(err => {
         console.error('Error playing video:', err);
       });
     } else {
+      // Pause the video and update state locally
       videoRef.current.pause();
+      setIsPlaying(false);
+      // Notify other clients
+      socketRef.current.emit('playbackControl', {
+        roomId,
+        action: 'pause',
+        currentTime: videoRef.current.currentTime,
+        isPlaying: false
+      });
     }
   };
   
@@ -1002,6 +1197,58 @@ function Room() {
     }
   };
   
+  // Add a function to toggle the viewers dropdown
+  const toggleViewersDropdown = () => {
+    setShowViewers(!showViewers);
+  };
+  
+  // Add a synchronization function for new connections
+  useEffect(() => {
+    if (!socketRef.current || !videoRef.current || !room?.videoInfo) return;
+    
+    // Add handler for sync response from server
+    const handleSyncPlayback = (playbackState) => {
+      if (!videoRef.current) return;
+      
+      console.log('Synchronizing playback state:', playbackState);
+      
+      // Set current time
+      if (Math.abs(videoRef.current.currentTime - playbackState.currentTime) > 1) {
+        videoRef.current.currentTime = playbackState.currentTime;
+      }
+      
+      // Set play/pause state
+      if (playbackState.isPlaying && videoRef.current.paused) {
+        ignoreNextPlayEvent.current = true;
+        setIsPlaying(true);
+        videoRef.current.play().catch(err => console.error('Error playing video during sync:', err));
+      } else if (!playbackState.isPlaying && !videoRef.current.paused) {
+        ignorePauseEvent.current = true;
+        setIsPlaying(false);
+        videoRef.current.pause();
+      }
+    };
+    
+    socketRef.current.on('syncPlayback', handleSyncPlayback);
+    
+    // Request sync when video is loaded
+    const handleCanPlay = () => {
+      socketRef.current.emit('requestSync', { roomId });
+    };
+    
+    videoRef.current.addEventListener('canplay', handleCanPlay);
+    
+    // Initial sync request
+    socketRef.current.emit('requestSync', { roomId });
+    
+    return () => {
+      socketRef.current.off('syncPlayback');
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('canplay', handleCanPlay);
+      }
+    };
+  }, [roomId, room?.videoInfo, socketRef.current]);
+  
   if (isLoading) {
     return (
       <div className="container">
@@ -1063,10 +1310,56 @@ function Room() {
         </StarsBackground>
 
         <RoomHeader>
-          <RoomTitle>
-            <FaGlobeAsia className="text-space-star" />
-            Planet Explorer <RoomId>#{roomId}</RoomId>
-          </RoomTitle>
+          <div>
+            <RoomTitle>
+              <FaGlobeAsia className="text-space-star" />
+              {room.name || "Planet Explorer"} <RoomId>#{roomId}</RoomId>
+            </RoomTitle>
+            <div className="text-sm text-slate-400 mt-1 flex items-center gap-2">
+              <FaSatellite className="text-space-star text-xs" />
+              <span>{room.theme || "General"}</span>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 items-center">
+            <ViewersDropdown>
+              <ViewersButton onClick={toggleViewersDropdown}>
+                <FaUsers className="text-space-star" />
+                <span>{viewers.length} explorer{viewers.length !== 1 ? 's' : ''}</span>
+              </ViewersButton>
+              
+              {showViewers && (
+                <ViewersPanel
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ViewersPanelHeader>
+                    <span>Explorers Online</span>
+                    <span className="text-sm">{viewers.length}</span>
+                  </ViewersPanelHeader>
+                  <ViewersDropdownList>
+                    {viewers.length === 0 ? (
+                      <div className="p-3 text-sm text-center text-gray-400">No explorers connected</div>
+                    ) : (
+                      viewers.map(viewer => (
+                        <ViewersDropdownItem 
+                          key={viewer.id} 
+                          className={viewer.id === socketRef.current?.id ? "you" : ""}
+                        >
+                          {viewer.name}
+                          {viewer.id === socketRef.current?.id && (
+                            <span className="ml-auto text-xs px-2 py-0.5 bg-space-star/20 rounded-full text-space-star">You</span>
+                          )}
+                        </ViewersDropdownItem>
+                      ))
+                    )}
+                  </ViewersDropdownList>
+                </ViewersPanel>
+              )}
+            </ViewersDropdown>
+          </div>
         </RoomHeader>
         
         <RoomMain>
@@ -1101,7 +1394,7 @@ function Room() {
                           isVisible={seekTooltip.visible} 
                           style={{ left: `${seekTooltip.position}px` }}
                         >
-                          {formatTime(seekTooltip.time)}
+                          {formatTime(seekTooltip.time, duration)}
                         </SeekTooltip>
                       )}
                     </div>
@@ -1116,9 +1409,9 @@ function Room() {
                       </ControlButton>
                       
                       <TimeDisplay>
-                        <span>{formatTime(currentTime || 0)}</span>
+                        <span>{formatTime(currentTime || 0, duration)}</span>
                         <span className="opacity-50 mx-1">/</span>
-                        <span>{formatTime(duration || 0)}</span>
+                        <span>{formatTime(duration || 0, duration)}</span>
                       </TimeDisplay>
                       
                       <VolumeControl>
@@ -1129,13 +1422,17 @@ function Room() {
                         >
                           {getVolumeIcon()}
                         </ControlButton>
-                        <VolumeSlider 
-                          min={0} 
-                          max={1} 
-                          step={0.01}
-                          value={volume}
-                          onChange={handleVolumeChange}
-                        />
+                        <VolumeSliderContainer className="volume-slider-container">
+                          <VolumeTrack />
+                          <VolumeFill value={volume} />
+                          <VolumeSlider 
+                            min={0} 
+                            max={1} 
+                            step={0.01}
+                            value={volume}
+                            onChange={handleVolumeChange}
+                          />
+                        </VolumeSliderContainer>
                       </VolumeControl>
                       
                       <div className="flex-1"></div>
@@ -1178,7 +1475,7 @@ function Room() {
             </VideoContainer>
           </VideoSection>
           
-          <SidePanel>
+          <ControlPanel>
             <Card>
               <CardHeader>
                 <FaUpload />
@@ -1227,29 +1524,7 @@ function Room() {
               </CardBody>
             </Card>
             
-            <Card>
-              <CardHeader>
-                <FaUsers />
-                Explorers ({viewers.length})
-              </CardHeader>
-              <CardBody>
-                <ViewersList>
-                  {viewers.length === 0 ? (
-                    <div className="text-center p-3 text-gray-400">No explorers connected</div>
-                  ) : (
-                    viewers.map(viewer => (
-                      <ViewerItem key={viewer.id}>
-                        {viewer.name} {viewer.id === socketRef.current?.id && (
-                          <span className="ml-auto text-xs px-2 py-1 bg-space-star/20 rounded-full text-space-star">You</span>
-                        )}
-                      </ViewerItem>
-                    ))
-                  )}
-                </ViewersList>
-              </CardBody>
-            </Card>
-            
-            <Card style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Card style={{ display: 'flex', flexDirection: 'column', height: '400px' }}>
               <CardHeader>
                 <FaComments />
                 Space Communications
@@ -1295,7 +1570,7 @@ function Room() {
                 </ChatForm>
               </ChatSection>
             </Card>
-          </SidePanel>
+          </ControlPanel>
         </RoomMain>
       </RoomContainer>
     </div>
