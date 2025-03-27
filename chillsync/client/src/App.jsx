@@ -7,6 +7,7 @@ import Home from './pages/Home'
 import CreateRoom from './pages/CreateRoom'
 import Room from './pages/Room'
 import NotFound from './pages/NotFound'
+import Planets from './pages/Planets'
 
 // Components
 import Header from './components/Header'
@@ -139,6 +140,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateRoom />} />
           <Route path="/room/:roomId" element={<Room />} />
+          <Route path="/planets" element={<Planets />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

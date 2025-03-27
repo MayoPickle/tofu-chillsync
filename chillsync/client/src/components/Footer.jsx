@@ -2,9 +2,11 @@ import { BsGithub } from 'react-icons/bs'
 import { FaRocket, FaStar } from 'react-icons/fa'
 import { HiMail } from 'react-icons/hi'
 import { motion } from 'framer-motion'
+import { useLanguage } from '../contexts/LanguageContext'
 
 function Footer() {
   const currentYear = new Date().getFullYear()
+  const { t } = useLanguage()
   
   // 增加更多星星
   const stars = Array.from({ length: 25 }, (_, i) => ({
@@ -112,7 +114,7 @@ function Footer() {
               }}
             >
               <FaStar className="text-xs text-space-star" />
-              <p>&copy; {currentYear} ChillSync</p>
+              <p>&copy; {currentYear} ChillSync. {t.allRights}</p>
             </motion.div>
           </div>
         </div>

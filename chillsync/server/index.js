@@ -100,6 +100,25 @@ app.get('/api/rooms/:roomId', (req, res) => {
   });
 });
 
+// Add new endpoint to get all active rooms
+app.get('/api/rooms', (req, res) => {
+  const activeRooms = Object.values(rooms).map(room => ({
+    id: room.id,
+    name: room.name,
+    theme: room.theme,
+    host: room.host,
+    createdAt: room.createdAt,
+    viewerCount: room.viewers.length,
+    hasVideo: !!room.videoInfo
+  }));
+  
+  res.status(200).json({
+    success: true,
+    count: activeRooms.length,
+    rooms: activeRooms
+  });
+});
+
 app.post('/api/rooms/:roomId/upload', upload.single('video'), (req, res) => {
   const { roomId } = req.params;
   

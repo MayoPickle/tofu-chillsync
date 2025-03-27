@@ -62,7 +62,7 @@ function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
             <NavLink to="/">Mission Control</NavLink>
-            <NavLink to="/create">Planet Explorer</NavLink>
+            <NavLink to="/planets">Planet Explorer</NavLink>
             <Link to="/create" className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]">
               <span className="flex items-center gap-2">
                 <motion.span
@@ -107,7 +107,7 @@ function Header() {
         >
           <div className="container py-4 flex flex-col gap-4">
             <NavLink to="/" onClick={toggleMenu}>Mission Control</NavLink>
-            <NavLink to="/create" onClick={toggleMenu}>Planet Explorer</NavLink>
+            <NavLink to="/planets" onClick={toggleMenu}>Planet Explorer</NavLink>
             <Link 
               to="/create" 
               className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]"

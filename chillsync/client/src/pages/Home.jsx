@@ -153,13 +153,13 @@ function Home() {
               <FaGlobeAsia className="text-sm" />
               Host a Planet
             </Link>
-            <a 
-              href="#join" 
+            <Link 
+              to="/planets" 
               className="btn btn-outline flex items-center justify-center gap-2"
             >
               <FaSatellite className="text-sm" />
               Explore Planets
-            </a>
+            </Link>
           </motion.div>
           
           <motion.div 
