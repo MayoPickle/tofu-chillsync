@@ -13,7 +13,7 @@ ChillSync is a web application that allows users to watch videos together in per
 
 ## Tech Stack
 
-- **Frontend**: React, Socket.io Client, Styled Components
+- **Frontend**: React, Socket.io Client, Styled Component
 - **Backend**: Node.js, Express, Socket.io
 - **Tools**: Vite (for React development)
 
