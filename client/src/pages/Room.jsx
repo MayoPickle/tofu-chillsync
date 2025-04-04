@@ -72,6 +72,9 @@ const Room = () => {
   const [volume, setVolume] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  // 添加标志变量，防止事件循环
+  const isRemoteActionRef = useRef(false);
+  
   // 生成背景星星
   const randomStars = Array.from({ length: 15 }, (_, i) => ({
     id: i,
@@ -176,10 +179,25 @@ const Room = () => {
       // Handle play/pause with explicit state updates
       if (data.isPlaying && videoRef.current.paused) {
         setIsPlaying(true);
-        videoRef.current.play().catch(err => console.error('Error playing video:', err));
+        // 设置标志为远程操作
+        isRemoteActionRef.current = true;
+        videoRef.current.play()
+          .catch(err => console.error('Error playing video:', err))
+          .finally(() => {
+            // 操作完成后将标志重置
+            setTimeout(() => {
+              isRemoteActionRef.current = false;
+            }, 50);
+          });
       } else if (!data.isPlaying && !videoRef.current.paused) {
         setIsPlaying(false);
+        // 设置标志为远程操作
+        isRemoteActionRef.current = true;
         videoRef.current.pause();
+        // 操作完成后将标志重置
+        setTimeout(() => {
+          isRemoteActionRef.current = false;
+        }, 50);
       }
     });
     
@@ -201,6 +219,9 @@ const Room = () => {
       // 更新本地状态
       setIsPlaying(true);
       
+      // 如果是远程操作触发的播放事件，不要再发送socket事件
+      if (isRemoteActionRef.current) return;
+      
       // 广播到其他客户端
       socketRef.current.emit('playbackControl', {
         roomId,
@@ -213,6 +234,9 @@ const Room = () => {
     const handlePause = () => {
       // 更新本地状态
       setIsPlaying(false);
+      
+      // 如果是远程操作触发的暂停事件，不要再发送socket事件
+      if (isRemoteActionRef.current) return;
       
       // 广播到其他客户端
       socketRef.current.emit('playbackControl', {
@@ -232,15 +256,8 @@ const Room = () => {
     };
     
     const handleEnded = () => {
+      // 只更新本地状态
       setIsPlaying(false);
-      
-      // 通知其他客户端视频已结束
-      socketRef.current.emit('playbackControl', {
-        roomId,
-        action: 'pause',
-        currentTime: videoElement.duration,
-        isPlaying: false
-      });
     };
     
     // 添加事件监听
@@ -258,7 +275,7 @@ const Room = () => {
       videoElement.removeEventListener('durationchange', handleDurationChange);
       videoElement.removeEventListener('ended', handleEnded);
     };
-  }, [roomId, room?.videoInfo, socketRef.current]);
+  }, [roomId, room?.videoInfo]);
   
   // 添加同步功能
   useEffect(() => {
@@ -278,10 +295,25 @@ const Room = () => {
       // 设置播放/暂停状态
       if (playbackState.isPlaying && videoRef.current.paused) {
         setIsPlaying(true);
-        videoRef.current.play().catch(err => console.error('Error playing video during sync:', err));
+        // 设置标志为远程操作
+        isRemoteActionRef.current = true;
+        videoRef.current.play()
+          .catch(err => console.error('Error playing video during sync:', err))
+          .finally(() => {
+            // 操作完成后将标志重置
+            setTimeout(() => {
+              isRemoteActionRef.current = false;
+            }, 50);
+          });
       } else if (!playbackState.isPlaying && !videoRef.current.paused) {
         setIsPlaying(false);
+        // 设置标志为远程操作
+        isRemoteActionRef.current = true;
         videoRef.current.pause();
+        // 操作完成后将标志重置
+        setTimeout(() => {
+          isRemoteActionRef.current = false;
+        }, 50);
       }
     };
     
