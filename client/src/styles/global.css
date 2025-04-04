@@ -62,6 +62,24 @@
   }
 }
 
+/* 为移动设备优化的流星动画 */
+@keyframes shooting-star-mobile {
+  0% { 
+    transform: translateX(0) translateY(0) rotate(30deg); 
+    opacity: 1;
+    box-shadow: 0 0 4px #fef08a;
+  }
+  70% { 
+    opacity: 1;
+    box-shadow: 0 0 3px #fef08a;
+  }
+  100% { 
+    transform: translateX(var(--travel-distance)) translateY(calc(var(--travel-distance) * 0.3)) rotate(30deg); 
+    opacity: 0;
+    box-shadow: 0 0 0px #fef08a;
+  }
+}
+
 @layer base {
   html, body {
     @apply font-space text-base text-slate-100 bg-space-darker antialiased;
@@ -88,20 +106,23 @@
     transform: translateY(-1px);
   }
   
-  a:after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 1px;
-    bottom: -2px;
-    left: 0;
-    background-color: #fef08a;
-    opacity: 0.7;
-    transition: width 0.3s ease;
-  }
-  
-  a:hover:after {
-    width: 100%;
+  /* 在移动设备上减少悬停动画效果 */
+  @media (hover: hover) {
+    a:after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 1px;
+      bottom: -2px;
+      left: 0;
+      background-color: #fef08a;
+      opacity: 0.7;
+      transition: width 0.3s ease;
+    }
+    
+    a:hover:after {
+      width: 100%;
+    }
   }
   
   nav a:after, .btn:after {
@@ -189,21 +210,71 @@
   .glow-hover:hover {
     animation: pulse-glow 2s ease-in-out infinite;
   }
+  
+  /* 触摸友好的点击区域 */
+  .touch-target {
+    @apply p-2;
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Responsive overrides */
+@media (max-width: 1024px) {
+  .container {
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   html {
     font-size: 14px;
   }
+  
+  .btn {
+    @apply px-5 py-2.5;
+  }
+  
+  .space-card {
+    @apply p-4;
+  }
 }
 
 @media (max-width: 576px) {
+  html {
+    font-size: 13px;
+  }
+  
   .container {
-    padding: 0 0.5rem;
+    padding: 0 0.75rem;
   }
   
   .btn {
     padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+  }
+  
+  .form-input {
+    @apply py-2.5 px-3;
+  }
+  
+  /* 使用移动设备优化的动画 */
+  .shooting-star {
+    animation-name: shooting-star-mobile;
+  }
+}
+
+/* 针对小屏幕设备 */
+@media (max-width: 375px) {
+  html {
+    font-size: 12px;
+  }
+  
+  .container {
+    padding: 0 0.5rem;
+  }
+  
+  .space-card {
+    @apply p-3;
   }
 } 

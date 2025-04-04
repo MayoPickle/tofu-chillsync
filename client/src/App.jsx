@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
-import { useEffect, useState, useCallback, memo, useRef } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
-import React from 'react'
+import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 
 // Pages
 import Home from './pages/Home'
@@ -15,58 +14,45 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import CatTofuMeteors from './components/CatTofuMeteors'
 
-// 自定义hook，判断是否需要应用动画
-const useAnimationsEnabled = () => {
-  const [enabled, setEnabled] = useState(() => {
-    // 默认启用，但可以从localStorage读取用户偏好
-    const saved = localStorage.getItem('animations-enabled');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-
-  // 用于控制动画的函数
-  const toggleAnimations = useCallback(() => {
-    setEnabled(prev => {
-      const newValue = !prev;
-      localStorage.setItem('animations-enabled', JSON.stringify(newValue));
-      return newValue;
-    });
-  }, []);
-
-  return { enabled, toggleAnimations };
-};
-
-// 优化的星星组件
-const TwinklingStars = memo(() => {
-  const [stars, setStars] = useState([]);
-  const shouldReduceMotion = useReducedMotion();
-  const { enabled: animationsEnabled } = useAnimationsEnabled();
-  
-  // 如果用户系统设置为减少动画或用户已关闭动画，则不显示
-  const showAnimations = !shouldReduceMotion && animationsEnabled;
+// 闪烁星星组件
+const TwinklingStars = () => {
+  const [stars, setStars] = useState([])
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    // 只有在启用动画时才生成星星
-    if (!showAnimations) return;
+    // 检测是否为移动设备
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
     
-    // 生成随机星星，减少数量从80减少到40
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理监听器
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  useEffect(() => {
+    // 生成随机星星，移动设备上减少星星数量
     const generateStars = () => {
-      const newStars = Array.from({ length: 40 }, (_, i) => ({
+      const starCount = isMobile ? 40 : 80; // 移动设备减半
+      const newStars = Array.from({ length: starCount }, (_, i) => ({
         id: i,
-        size: Math.random() * 3 + 1,
+        size: Math.random() * (isMobile ? 2 : 3) + 1, // 移动设备尺寸略小
         top: `${Math.random() * 100}%`,
         left: `${Math.random() * 100}%`,
         delay: Math.random() * 5,
         duration: Math.random() * 3 + 2,
         opacity: Math.random() * 0.7 + 0.3
-      }));
-      setStars(newStars);
-    };
+      }))
+      setStars(newStars)
+    }
 
-    generateStars();
-  }, [showAnimations]);
-
-  // 如果不显示动画，返回null
-  if (!showAnimations || stars.length === 0) return null;
+    generateStars()
+  }, [isMobile])
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -82,75 +68,79 @@ const TwinklingStars = memo(() => {
           }}
           animate={{ 
             opacity: [star.opacity, 1, star.opacity],
-            scale: [1, star.size > 2 ? 1.2 : 1.05, 1], // 减小缩放幅度
+            scale: [1, star.size > 2 ? 1.3 : 1.1, 1],
           }}
           transition={{ 
             repeat: Infinity, 
             duration: star.duration,
             delay: star.delay,
-            ease: "easeInOut",
-            // 使用更高效的CSS变换而不是JS动画
-            type: "tween"
+            ease: "easeInOut" 
           }}
         />
       ))}
     </div>
-  );
-});
+  )
+}
 
-TwinklingStars.displayName = 'TwinklingStars';
-
-// 优化的流星组件
-const ShootingStars = memo(() => {
-  const [meteors, setMeteors] = useState([]);
-  const intervalRef = useRef(null);
-  const shouldReduceMotion = useReducedMotion();
-  const { enabled: animationsEnabled } = useAnimationsEnabled();
+// 流星组件
+const ShootingStars = () => {
+  const [meteors, setMeteors] = useState([])
+  const [isMobile, setIsMobile] = useState(false)
   
-  // 如果用户系统设置为减少动画或用户已关闭动画，则不显示
-  const showAnimations = !shouldReduceMotion && animationsEnabled;
+  useEffect(() => {
+    // 检测是否为移动设备
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理监听器
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
   
-  // 使用useCallback优化函数创建
-  const createMeteor = useCallback((id) => ({
+  useEffect(() => {
+    // 初始化几个流星，移动设备上减少数量
+    const initialCount = isMobile ? 1 : 3;
+    const initialMeteors = Array.from({ length: initialCount }, (_, i) => createMeteor(i))
+    setMeteors(initialMeteors)
+    
+    // 随机产生新流星
+    const interval = setInterval(() => {
+      const newMeteorId = Date.now()
+      setMeteors(prev => {
+        // 移动设备限制更少的流星
+        const maxMeteors = isMobile ? 8 : 15;
+        // 移除一些旧流星，保持总数在合理范围内
+        const updatedMeteors = prev.length > maxMeteors 
+          ? [...prev.slice(prev.length - maxMeteors), createMeteor(newMeteorId)]
+          : [...prev, createMeteor(newMeteorId)]
+        return updatedMeteors
+      })
+    }, Math.random() * 2000 + (isMobile ? 4000 : 2000)) // 移动设备降低流星生成频率
+    
+    return () => clearInterval(interval)
+  }, [isMobile])
+  
+  // 创建流星对象
+  const createMeteor = (id) => ({
     id,
     top: `${Math.random() * 30}%`,
     left: `${Math.random() * 60 + 10}%`,
-    size: Math.random() * 2.5 + 1.5,
-    travel: Math.random() * 200 + 100,
-    duration: Math.random() * 1.5 + 0.8,
-    delay: Math.random() * 3
-  }), []);
+    size: Math.random() * (isMobile ? 2 : 2.5) + (isMobile ? 1 : 1.5), // 移动设备尺寸稍微减小
+    travel: Math.random() * (isMobile ? 150 : 200) + (isMobile ? 80 : 100), // 移动设备移动距离略小
+    duration: Math.random() * 1.5 + 0.8, // 动画持续时间
+    delay: Math.random() * 3 // 延迟时间
+  })
   
-  useEffect(() => {
-    // 只有在启用动画时才生成流星
-    if (!showAnimations) return;
-    
-    // 初始化流星，减少初始数量
-    const initialMeteors = Array.from({ length: 2 }, (_, i) => createMeteor(i));
-    setMeteors(initialMeteors);
-    
-    // 随机产生新流星，增加时间间隔
-    intervalRef.current = setInterval(() => {
-      const newMeteorId = Date.now();
-      setMeteors(prev => {
-        // 限制最大流星数量
-        const maxMeteors = 8; // 限制流星总数
-        const updatedMeteors = prev.length >= maxMeteors 
-          ? [...prev.slice(1), createMeteor(newMeteorId)] // 移除最旧的流星
-          : [...prev, createMeteor(newMeteorId)];
-        return updatedMeteors;
-      });
-    }, Math.random() * 3000 + 3000); // 增加时间间隔
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [showAnimations, createMeteor]);
-  
-  // 如果不显示动画，返回null
-  if (!showAnimations || meteors.length === 0) return null;
+  // 低性能设备跳过复杂动画
+  if (isMobile && navigator.deviceMemory && navigator.deviceMemory <= 2) {
+    return null;
+  }
   
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -165,52 +155,41 @@ const ShootingStars = memo(() => {
             '--travel-distance': `${meteor.travel}px`
           }}
         >
+          {/* 只保留流星主体 */}
           <div 
-            className="absolute rounded-full bg-space-star"
+            className="absolute rounded-full bg-space-star shooting-star"
             style={{
               width: `${meteor.size}px`,
               height: `${meteor.size}px`,
-              boxShadow: '0 0 6px #fef08a',
+              boxShadow: isMobile ? '0 0 4px #fef08a' : '0 0 6px #fef08a', // 移动设备减小阴影
               animation: `shooting-star ${meteor.duration}s ${meteor.delay}s ease-out forwards`
             }}
           />
         </div>
       ))}
     </div>
-  );
-});
-
-ShootingStars.displayName = 'ShootingStars';
-
-// 为App组件添加Context Provider，允许组件访问animations启用状态
-export const AnimationsContext = React.createContext({
-  enabled: true,
-  toggleAnimations: () => {}
-});
-
-function App() {
-  const animationsState = useAnimationsEnabled();
-  
-  return (
-    <AnimationsContext.Provider value={animationsState}>
-      <div className="flex flex-col min-h-screen">
-        <TwinklingStars />
-        <ShootingStars />
-        <CatTofuMeteors />
-        <Header />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/create" element={<CreateRoom />} />
-            <Route path="/room/:roomId" element={<Room />} />
-            <Route path="/planets" element={<Planets />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </AnimationsContext.Provider>
-  );
+  )
 }
 
-export default App; 
+function App() {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <TwinklingStars />
+      <ShootingStars />
+      <CatTofuMeteors />
+      <Header />
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/create" element={<CreateRoom />} />
+          <Route path="/room/:roomId" element={<Room />} />
+          <Route path="/planets" element={<Planets />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  )
+}
+
+export default App 

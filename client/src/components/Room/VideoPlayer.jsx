@@ -324,7 +324,9 @@ const VideoPlayer = ({
     socketRef.current.emit('playbackControl', {
       roomId,
       action: 'seek',
-      currentTime: seekTime
+      currentTime: seekTime,
+      // 添加当前播放状态，确保所有客户端保持一致的播放/暂停状态
+      isPlaying: !videoRef.current.paused
     });
     
     isSeeking.current = false;
@@ -358,12 +360,173 @@ const VideoPlayer = ({
   const toggleFullscreen = () => {
     if (!videoContainerRef.current) return;
     
-    if (!document.fullscreenElement) {
-      videoContainerRef.current.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
+    // 检测是否为iOS设备，iOS对全屏API有特殊处理
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
+    try {
+      if (!document.fullscreenElement && 
+          !document.webkitFullscreenElement && 
+          !document.mozFullScreenElement && 
+          !document.msFullscreenElement) {
+        
+        // iOS设备使用专门的全屏处理方式
+        if (isIOS) {
+          iOSFullscreenHandler();
+        } else {
+          // 非iOS设备走标准流程
+          // 使用不同浏览器的全屏API
+          if (videoContainerRef.current.requestFullscreen) {
+            videoContainerRef.current.requestFullscreen().catch(err => {
+              console.error(`Error attempting to enable fullscreen: ${err.message}`);
+              
+              // 如果是移动设备，尝试直接对视频元素启用全屏
+              if (/Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                tryVideoElementFullscreen();
+              }
+            });
+          } else if (videoContainerRef.current.webkitRequestFullscreen) {
+            videoContainerRef.current.webkitRequestFullscreen();
+          } else if (videoContainerRef.current.mozRequestFullScreen) {
+            videoContainerRef.current.mozRequestFullScreen();
+          } else if (videoContainerRef.current.msRequestFullscreen) {
+            videoContainerRef.current.msRequestFullscreen();
+          }
+        }
+      } else {
+        // 退出全屏
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error("Fullscreen error:", error);
+      // 尝试直接对视频元素启用全屏作为备选方案
+      if (isIOS) {
+        iOSFullscreenHandler();
+      } else {
+        tryVideoElementFullscreen();
+      }
+    }
+  };
+  
+  // 专门处理iOS设备的全屏
+  const iOSFullscreenHandler = () => {
+    if (!videoRef.current) return;
+    
+    try {
+      // 记录当前播放位置和播放状态，用于进入全屏后恢复
+      const currentPlaybackTime = videoRef.current.currentTime;
+      const wasPlaying = !videoRef.current.paused;
+      
+      // 创建时间更新处理器，确保在全屏期间能同步位置
+      const handleiOSTimeUpdate = () => {
+        // 如果用户正在拖动进度条，则不应该更新状态
+        if (isSeeking.current) return;
+        
+        // 正常更新当前时间状态
+        setCurrentTime(videoRef.current.currentTime);
+        
+        // 更频繁地发送同步信息（每5秒而不是10秒）
+        if (Math.floor(videoRef.current.currentTime) % 5 === 0 && socketRef && videoRef.current.readyState > 0) {
+          socketRef.emit('playbackControl', {
+            roomId,
+            action: 'seek',
+            currentTime: videoRef.current.currentTime,
+            isPlaying: !videoRef.current.paused
+          });
+        }
+      };
+      
+      // 启用iOS特有的全屏模式
+      videoRef.current.webkitEnterFullscreen();
+      
+      // 设置标志位表示已进入全屏
+      setIsFullscreen(true);
+      
+      // 添加iOS全屏期间的时间更新处理器
+      videoRef.current.addEventListener('timeupdate', handleiOSTimeUpdate);
+      
+      // 监听iOS设备上的全屏退出事件
+      const handleiOSFullscreenExit = () => {
+        // 清理事件监听
+        videoRef.current.removeEventListener('webkitendfullscreen', handleiOSFullscreenExit);
+        videoRef.current.removeEventListener('timeupdate', handleiOSTimeUpdate);
+        
+        // 更新全屏状态
+        setIsFullscreen(false);
+        
+        // 应用全屏期间接收到的同步数据
+        if (window.pendingSync) {
+          console.log('Applying pending sync data:', window.pendingSync);
+          
+          // 应用进度更新
+          if (Math.abs(videoRef.current.currentTime - window.pendingSync.currentTime) > 1) {
+            videoRef.current.currentTime = window.pendingSync.currentTime;
+          }
+          
+          // 应用播放状态
+          if (window.pendingSync.isPlaying && videoRef.current.paused) {
+            videoRef.current.play().catch(err => console.error('Error applying pending play:', err));
+          } else if (!window.pendingSync.isPlaying && !videoRef.current.paused) {
+            videoRef.current.pause();
+          }
+          
+          // 清除待处理的同步数据
+          window.pendingSync = null;
+        } else {
+          // 如果没有挂起的同步数据，则尝试恢复原始状态
+          if (Math.abs(videoRef.current.currentTime - currentPlaybackTime) > 1) {
+            // 同步播放位置
+            videoRef.current.currentTime = currentPlaybackTime;
+            
+            // 通知其他客户端同步位置
+            if (socketRef) {
+              socketRef.emit('playbackControl', {
+                roomId,
+                action: 'seek',
+                currentTime: currentPlaybackTime
+              });
+            }
+          }
+          
+          // 恢复播放状态
+          if (wasPlaying && videoRef.current.paused) {
+            videoRef.current.play();
+          } else if (!wasPlaying && !videoRef.current.paused) {
+            videoRef.current.pause();
+          }
+        }
+      };
+      
+      // 添加iOS专用的全屏结束事件监听
+      videoRef.current.addEventListener('webkitendfullscreen', handleiOSFullscreenExit);
+      
+    } catch (error) {
+      console.error("iOS fullscreen error:", error);
+    }
+  };
+
+  // 尝试对视频元素直接启用全屏
+  const tryVideoElementFullscreen = () => {
+    if (!videoRef.current) return;
+    
+    try {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen();
+      } else if (videoRef.current.webkitRequestFullscreen) {
+        videoRef.current.webkitRequestFullscreen();
+      } else if (videoRef.current.webkitEnterFullscreen) {
+        // 特殊的iOS方法
+        videoRef.current.webkitEnterFullscreen();
+      }
+    } catch (error) {
+      console.error("Video element fullscreen error:", error);
     }
   };
 
@@ -389,13 +552,27 @@ const VideoPlayer = ({
   // 监听全屏变化
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFullscreenActive = 
+        !!document.fullscreenElement ||
+        !!document.webkitFullscreenElement ||
+        !!document.mozFullScreenElement ||
+        !!document.msFullscreenElement;
+      
+      setIsFullscreen(isFullscreenActive);
     };
     
+    // 添加所有浏览器前缀的全屏事件监听
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
     
     return () => {
+      // 清理监听器
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
     };
   }, [setIsFullscreen]);
 
@@ -484,7 +661,12 @@ const VideoPlayer = ({
           ref={videoRef}
           src={videoInfo.path}
           controls={false}
-          playsInline
+          playsInline={true}
+          data-webkit-playsinline="true"
+          data-webkit-airplay="allow"
+          data-x5-playsinline="true"
+          data-x5-video-player-type="h5"
+          data-x5-video-player-fullscreen="true"
           onClick={handlePlayPause}
         />
         
@@ -499,8 +681,28 @@ const VideoPlayer = ({
                 const seekTime = position * duration;
                 handleSeekTo(seekTime);
               }}
+              onTouchStart={(e) => {
+                if (!videoRef.current || !duration) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const position = (e.touches[0].clientX - rect.left) / rect.width;
+                const seekTime = position * duration;
+                handleSeekTo(seekTime);
+              }}
               onMouseMove={handleSeekBarHover}
+              onTouchMove={(e) => {
+                if (!videoRef.current || !duration) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const position = (e.touches[0].clientX - rect.left) / rect.width;
+                const hoverTime = position * duration;
+                
+                setSeekTooltip({
+                  visible: true,
+                  time: hoverTime,
+                  position: e.touches[0].clientX - rect.left
+                });
+              }}
               onMouseLeave={() => setSeekTooltip({ ...seekTooltip, visible: false })}
+              onTouchEnd={() => setSeekTooltip({ ...seekTooltip, visible: false })}
             />
             {duration > 0 && (
               <SeekTooltip 

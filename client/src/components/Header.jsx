@@ -1,55 +1,72 @@
 import { Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { HiOutlineVideoCamera, HiMenuAlt3, HiX } from 'react-icons/hi'
-import { FaRocket, FaSatellite, FaGlobeAsia, FaToggleOn, FaToggleOff } from 'react-icons/fa'
-import { useState, useContext } from 'react'
+import { FaRocket, FaSatellite, FaGlobeAsia } from 'react-icons/fa'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import LanguageSwitcher from './LanguageSwitcher'
-import { AnimationsContext } from '../App'
-
-// 动画切换组件
-const AnimationToggle = () => {
-  const { enabled, toggleAnimations } = useContext(AnimationsContext);
-  const { t } = useLanguage();
-
-  return (
-    <motion.button
-      className="flex items-center gap-1.5 text-slate-300 hover:text-space-star transition-colors px-2 py-1 rounded-md"
-      onClick={toggleAnimations}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      title={enabled ? '关闭动画效果' : '打开动画效果'}
-    >
-      {enabled ? (
-        <FaToggleOn className="text-lg text-space-star" />
-      ) : (
-        <FaToggleOff className="text-lg" />
-      )}
-      <span className="text-sm hidden md:inline-block">{enabled ? '动画：开' : '动画：关'}</span>
-    </motion.button>
-  );
-};
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const { t } = useLanguage()
-  const { enabled: animationsEnabled } = useContext(AnimationsContext);
+
+  useEffect(() => {
+    // 检测是否为移动设备
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理监听器
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  // 点击导航菜单外区域关闭菜单
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    
+    const handleClickOutside = (e) => {
+      // 只有在菜单打开状态下才会检测
+      if (isMenuOpen) {
+        // 检查点击的元素是否在菜单内
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuButton = document.getElementById('menu-button');
+        
+        if (mobileMenu && !mobileMenu.contains(e.target) && 
+            menuButton && !menuButton.contains(e.target)) {
+          setIsMenuOpen(false);
+        }
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
 
   return (
     <header className="bg-space-dark/30 backdrop-blur border-b border-primary-900/30 sticky top-0 z-50">
       <div className="container">
-        <div className="flex justify-between items-center py-4">
-          <div className="flex items-center gap-4">
+        <div className="flex justify-between items-center py-3 md:py-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Link to="/" className="flex items-center gap-3 text-2xl font-bold text-white no-underline group">
+              <Link to="/" className="flex items-center gap-2 md:gap-3 text-xl md:text-2xl font-bold text-white no-underline group">
                 <motion.div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-space-star/60 shadow-glow overflow-hidden"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-space-star/60 shadow-glow overflow-hidden"
                   whileHover={{ 
                     scale: 1.1, 
                     rotate: 10,
@@ -59,46 +76,37 @@ function Header() {
                 >
                   <motion.div
                     initial={{ y: 0 }}
-                    animate={animationsEnabled ? { 
-                      y: [0, -2, 0, 2, 0] 
-                    } : {}}
-                    transition={animationsEnabled ? { 
+                    animate={{ y: isMobile ? 0 : [0, -2, 0, 2, 0] }} // 在移动设备上停用精细动画
+                    transition={{ 
                       repeat: Infinity, 
                       duration: 2, 
                       ease: "easeInOut" 
-                    } : {}}
+                    }}
                   >
-                    <FaRocket className="text-white text-xl" />
+                    <FaRocket className="text-white text-base md:text-xl" />
                   </motion.div>
                 </motion.div>
                 <div className="flex flex-col">
-                  <span className="text-space-star font-space font-bold tracking-wide">ChillSync</span>
-                  <span className="text-xs text-slate-400 -mt-1">Space Station</span>
+                  <span className="text-space-star font-space font-bold tracking-wide text-base md:text-xl">ChillSync</span>
+                  <span className="text-[10px] md:text-xs text-slate-400 -mt-1">Space Station</span>
                 </div>
-                
-                {/* 闪烁的星星点，只在动画开启时显示 */}
-                <AnimatePresence>
-                  {animationsEnabled && (
-                    <motion.div 
-                      className="absolute w-2 h-2 bg-space-star rounded-full -top-0.5 left-6 opacity-80"
-                      animate={{ 
-                        scale: [1, 1.5, 1],
-                        opacity: [0.7, 1, 0.7],
-                      }}
-                      transition={{ 
-                        repeat: Infinity, 
-                        duration: 3, 
-                        ease: "easeInOut" 
-                      }}
-                    />
-                  )}
-                </AnimatePresence>
+                {!isMobile && (
+                  <motion.div 
+                    className="absolute w-2 h-2 bg-space-star rounded-full -top-0.5 left-6 opacity-80"
+                    animate={{ 
+                      scale: [1, 1.5, 1],
+                      opacity: [0.7, 1, 0.7],
+                    }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: 3, 
+                      ease: "easeInOut" 
+                    }}
+                  />
+                )}
               </Link>
             </motion.div>
-            <div className="flex items-center gap-2">
-              <LanguageSwitcher />
-              <AnimationToggle />
-            </div>
+            <LanguageSwitcher />
           </div>
 
           {/* Desktop Navigation */}
@@ -107,23 +115,17 @@ function Header() {
             <NavLink to="/planets">{t.planetExplorer}</NavLink>
             <Link to="/create" className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]">
               <span className="flex items-center gap-2">
-                {animationsEnabled ? (
-                  <motion.span
-                    animate={{ rotate: 360 }}
-                    transition={{ 
-                      repeat: Infinity, 
-                      duration: 15, 
-                      ease: "linear" 
-                    }}
-                    className="inline-block"
-                  >
-                    <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
-                  </motion.span>
-                ) : (
-                  <span className="inline-block">
-                    <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
-                  </span>
-                )}
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ 
+                    repeat: Infinity, 
+                    duration: 15, 
+                    ease: "linear" 
+                  }}
+                  className="inline-block"
+                >
+                  <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
+                </motion.span>
                 <span>{t.hostPlanet}</span>
               </span>
             </Link>
@@ -131,9 +133,11 @@ function Header() {
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden text-slate-200 focus:outline-none hover:text-space-star"
+            id="menu-button"
+            className="md:hidden text-slate-200 focus:outline-none hover:text-space-star p-2 -mr-2"
             onClick={toggleMenu}
             aria-label="Toggle menu"
+            aria-expanded={isMenuOpen}
           >
             {isMenuOpen ? (
               <HiX className="w-6 h-6" />
@@ -147,7 +151,8 @@ function Header() {
       {/* Mobile Navigation */}
       {isMenuOpen && (
         <motion.div 
-          className="md:hidden bg-space-dark/90 backdrop-blur-sm border-t border-primary-900/30"
+          id="mobile-menu"
+          className="md:hidden bg-space-dark/90 backdrop-blur-sm border-b border-primary-900/30 absolute w-full"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
@@ -156,34 +161,17 @@ function Header() {
           <div className="container py-4 flex flex-col gap-4">
             <div className="flex items-center gap-2 mb-2">
               <LanguageSwitcher />
-              <AnimationToggle />
             </div>
             <NavLink to="/" onClick={toggleMenu}>{t.missionControl}</NavLink>
             <NavLink to="/planets" onClick={toggleMenu}>{t.planetExplorer}</NavLink>
             <Link 
               to="/create" 
-              className="btn bg-blue-900 hover:bg-blue-800 text-white group shadow-md hover:shadow-[0_0_15px_rgba(254,240,138,0.4)]"
+              className="btn bg-blue-900 hover:bg-blue-800 text-white text-center py-2.5 flex justify-center items-center gap-2 shadow-md"
               onClick={toggleMenu}
             >
-              <span className="flex items-center justify-center gap-2">
-                {animationsEnabled ? (
-                  <motion.span
-                    animate={{ rotate: 360 }}
-                    transition={{ 
-                      repeat: Infinity, 
-                      duration: 15, 
-                      ease: "linear" 
-                    }}
-                    className="inline-block"
-                  >
-                    <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
-                  </motion.span>
-                ) : (
-                  <span className="inline-block">
-                    <FaGlobeAsia className="text-sm opacity-80 group-hover:text-space-star" />
-                  </span>
-                )}
-                <span>{t.hostPlanet}</span>
+              <span>
+                <FaGlobeAsia className="inline-block mr-2 text-sm opacity-80" />
+                {t.hostPlanet}
               </span>
             </Link>
           </div>
@@ -202,7 +190,7 @@ function NavLink({ to, children, onClick }) {
     >
       <Link 
         to={to} 
-        className="text-slate-300 font-medium hover:text-space-star transition-all duration-200 tracking-wide px-1 py-1"
+        className="text-slate-300 font-medium hover:text-space-star transition-all duration-200 tracking-wide px-1 py-1 block"
         onClick={onClick}
       >
         {children}

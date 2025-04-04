@@ -162,7 +162,7 @@ const Room = () => {
       }, 100);
     });
     
-    // Playback control handling
+    // 处理播放控制事件
     socketRef.current.on('playbackUpdate', (data) => {
       if (!videoRef.current) return;
       
@@ -171,33 +171,65 @@ const Room = () => {
       
       console.log('Received playback update:', data);
       
-      // Handle seek
-      if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1) {
-        videoRef.current.currentTime = data.currentTime;
+      // 检查是否为iOS设备且处于全屏模式
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isIOSFullscreen = isIOS && isFullscreen;
+      
+      // 如果是iOS设备且处于全屏模式，存储最新进度但不立即应用
+      if (isIOSFullscreen) {
+        console.log('iOS fullscreen mode - storing sync data for later application');
+        // 存储同步数据，等退出全屏时应用
+        window.pendingSync = data;
+        return;
       }
       
-      // Handle play/pause with explicit state updates
-      if (data.isPlaying && videoRef.current.paused) {
-        setIsPlaying(true);
-        // 设置标志为远程操作
-        isRemoteActionRef.current = true;
-        videoRef.current.play()
-          .catch(err => console.error('Error playing video:', err))
-          .finally(() => {
-            // 操作完成后将标志重置
-            setTimeout(() => {
-              isRemoteActionRef.current = false;
-            }, 50);
-          });
-      } else if (!data.isPlaying && !videoRef.current.paused) {
-        setIsPlaying(false);
-        // 设置标志为远程操作
-        isRemoteActionRef.current = true;
-        videoRef.current.pause();
-        // 操作完成后将标志重置
-        setTimeout(() => {
-          isRemoteActionRef.current = false;
-        }, 50);
+      // 对于非iOS全屏模式，立即应用同步
+      try {
+        // 防止在视频加载前尝试同步
+        if (videoRef.current.readyState === 0) {
+          console.log('Video not ready, storing sync data for later');
+          window.pendingSync = data;
+          return;
+        }
+        
+        // 处理进度同步 (增加容差范围并使阈值更小，以确保细微变化也能得到同步)
+        if (Math.abs(videoRef.current.currentTime - data.currentTime) > 0.5) {
+          console.log(`Syncing time from ${videoRef.current.currentTime} to ${data.currentTime}`);
+          
+          // 更新内部状态以确保进度条UI立即更新
+          setCurrentTime(data.currentTime);
+          
+          // 设置视频元素的当前时间
+          videoRef.current.currentTime = data.currentTime;
+        }
+        
+        // 处理播放/暂停状态同步
+        if (data.isPlaying && videoRef.current.paused) {
+          setIsPlaying(true);
+          // 设置标志为远程操作
+          isRemoteActionRef.current = true;
+          videoRef.current.play()
+            .catch(err => console.error('Error playing video:', err))
+            .finally(() => {
+              // 操作完成后将标志重置
+              setTimeout(() => {
+                isRemoteActionRef.current = false;
+              }, 50);
+            });
+        } else if (!data.isPlaying && !videoRef.current.paused) {
+          setIsPlaying(false);
+          // 设置标志为远程操作
+          isRemoteActionRef.current = true;
+          videoRef.current.pause();
+          // 操作完成后将标志重置
+          setTimeout(() => {
+            isRemoteActionRef.current = false;
+          }, 50);
+        }
+      } catch (error) {
+        console.error('Error applying sync data:', error);
+        // 出错时存储同步数据以便后续重试
+        window.pendingSync = data;
       }
     });
     
@@ -248,7 +280,22 @@ const Room = () => {
     };
     
     const handleTimeUpdate = () => {
+      // 只有在不是由远程操作引起的情况下才更新当前时间
+      if (!isRemoteActionRef.current) {
         setCurrentTime(videoElement.currentTime);
+      }
+      
+      // 定期发送同步数据，确保所有客户端保持同步
+      // 每30秒广播一次当前播放位置，作为额外的同步保障
+      const currentSeconds = Math.floor(videoElement.currentTime);
+      if (currentSeconds % 30 === 0 && currentSeconds > 0 && !isRemoteActionRef.current) {
+        socketRef.current.emit('playbackControl', {
+          roomId,
+          action: 'timeupdate',
+          currentTime: videoElement.currentTime,
+          isPlaying: !videoElement.paused
+        });
+      }
     };
     
     const handleDurationChange = () => {
@@ -287,8 +334,49 @@ const Room = () => {
       
       console.log('Synchronizing playback state:', playbackState);
       
+      // 处理iOS全屏状态
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS && isFullscreen) {
+        console.log('iOS in fullscreen - storing sync data');
+        window.pendingSync = playbackState;
+        return;
+      }
+      
+      // 确保视频已准备好
+      if (videoRef.current.readyState === 0) {
+        console.log('Video not ready yet, storing sync data');
+        window.pendingSync = playbackState;
+        
+        // 添加一次性监听器，在视频可以播放时应用同步
+        const applyPendingSync = () => {
+          if (window.pendingSync) {
+            console.log('Applying pending sync now that video is ready');
+            
+            // 应用存储的同步数据
+            videoRef.current.currentTime = window.pendingSync.currentTime;
+            setCurrentTime(window.pendingSync.currentTime);
+            
+            if (window.pendingSync.isPlaying && videoRef.current.paused) {
+              videoRef.current.play().catch(err => console.error('Error playing on delayed sync:', err));
+            } else if (!window.pendingSync.isPlaying && !videoRef.current.paused) {
+              videoRef.current.pause();
+            }
+            
+            window.pendingSync = null;
+          }
+          
+          // 清理一次性监听器
+          videoRef.current.removeEventListener('canplay', applyPendingSync);
+        };
+        
+        videoRef.current.addEventListener('canplay', applyPendingSync);
+        return;
+      }
+      
       // 设置当前时间
-      if (Math.abs(videoRef.current.currentTime - playbackState.currentTime) > 1) {
+      if (Math.abs(videoRef.current.currentTime - playbackState.currentTime) > 0.5) {
+        // 立即更新UI状态，确保进度条立即响应
+        setCurrentTime(playbackState.currentTime);
         videoRef.current.currentTime = playbackState.currentTime;
       }
       
