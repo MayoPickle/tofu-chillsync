@@ -11,6 +11,7 @@ import {
   ProgressBar,
   ProgressFill
 } from './RoomStyles';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const FileUploader = ({ 
   roomId, 
@@ -21,6 +22,8 @@ const FileUploader = ({
   setUploadProgress, 
   setRoom
 }) => {
+  const { t } = useLanguage();
+  
   // 处理文件上传
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -82,7 +85,7 @@ const FileUploader = ({
     <Card>
       <CardHeader>
         <FaUpload />
-        Transmission Upload
+        {t.chooseFile}
       </CardHeader>
       <CardBody>
         <FileUploadSection>
@@ -100,10 +103,10 @@ const FileUploader = ({
             <UploadLabel htmlFor="video-upload" className="flex items-center justify-center gap-2">
               <FaUpload className="mr-1" />
               {isUploading ? 
-                'Beaming transmission...' : 
+                t.uploading : 
                 room.videoInfo ? 
                   'Change transmission' : 
-                  'Click to upload transmission'
+                  t.selectFile
               }
             </UploadLabel>
           </motion.div>

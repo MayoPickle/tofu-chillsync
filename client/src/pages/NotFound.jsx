@@ -3,8 +3,11 @@ import { motion } from 'framer-motion'
 import { HiOutlineHome } from 'react-icons/hi'
 import { FaRocket, FaSpaceShuttle, FaGlobeAsia, FaSatellite } from 'react-icons/fa'
 import Card from '../components/Card'
+import { useLanguage } from '../contexts/LanguageContext'
 
 function NotFound() {
+  const { t } = useLanguage();
+  
   // Generate stars
   const stars = Array.from({ length: 50 }, (_, i) => ({
     id: i,
@@ -183,7 +186,7 @@ function NotFound() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            404
+            {t.notFoundTitle}
           </motion.h1>
           
           <motion.h2 
@@ -192,7 +195,7 @@ function NotFound() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Space Station Not Found
+            {t.stationNotFound}
           </motion.h2>
           
           <motion.p
@@ -201,7 +204,7 @@ function NotFound() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            Your spacecraft has drifted into unknown territory. This sector of space hasn't been mapped yet.
+            {t.lostInSpace}
           </motion.p>
           
           <motion.div
@@ -211,16 +214,16 @@ function NotFound() {
           >
             <Link 
               to="/" 
-              className="btn btn-primary inline-flex items-center gap-2 shadow-[0_0_15px_rgba(254,240,138,0.4)] px-8"
+              className="btn btn-primary inline-flex items-center gap-2"
             >
-              <FaSpaceShuttle />
-              Return to Base
+              <HiOutlineHome />
+              {t.returnHome}
             </Link>
           </motion.div>
         </Card>
       </motion.div>
     </div>
-  )
+  );
 }
 
-export default NotFound 
+export default NotFound; 

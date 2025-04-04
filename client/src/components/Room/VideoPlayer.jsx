@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FaPlay, FaPause, FaCompress, FaExpand, FaVolumeUp, FaVolumeDown, FaVolumeMute } from 'react-icons/fa';
+import { FaPlay, FaPause, FaCompress, FaExpand, FaVolumeUp, FaVolumeDown, FaVolumeMute, FaSatellite } from 'react-icons/fa';
 import { formatTime } from '../../utils/formatTime';
 import { ControlButton } from './RoomStyles';
 
@@ -402,31 +402,75 @@ const VideoPlayer = ({
   if (!videoInfo) {
     return (
       <VideoSection>
-        <VideoContainer>
+        <VideoContainer ref={videoContainerRef}>
           <VideoPlaceholder>
             <motion.div
               animate={{ 
-                opacity: [0.6, 1, 0.6],
-                scale: [0.98, 1.02, 0.98],
+                rotate: [0, -10, 10, -10, 0],
+                y: [0, -10, 0],
+                scale: [1, 1.1, 1],
               }}
               transition={{ 
                 repeat: Infinity, 
-                duration: 3,
+                duration: 5,
                 ease: "easeInOut" 
               }}
+              style={{ position: 'relative' }}
             >
-              <div className="text-space-star" style={{ fontSize: '64px', opacity: 0.8 }}>
-                🛰️
-              </div>
+              <FaSatellite className="text-space-star" style={{ fontSize: '64px', opacity: 0.8 }} />
             </motion.div>
+            
+            <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: -1, overflow: 'hidden' }}>
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    width: Math.random() * 3 + 1,
+                    height: Math.random() * 3 + 1,
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--space-star, #fef08a)',
+                    top: `${Math.random() * 100}%`,
+                    left: `${Math.random() * 100}%`,
+                  }}
+                  animate={{
+                    opacity: [0.2, 0.8, 0.2],
+                    scale: [1, 1.5, 1],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: Math.random() * 3 + 2,
+                    delay: Math.random() * 5,
+                    ease: "easeInOut"
+                  }}
+                />
+              ))}
+            </div>
+            
             <motion.h3 
-              style={{ marginTop: '1rem' }}
+              style={{ marginTop: '1.5rem', position: 'relative', zIndex: 2, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}
               animate={{ opacity: [0.8, 1, 0.8] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
             >
-              No transmission signal yet
+              还没有视频信号 
+              <motion.span
+                animate={{ rotate: [0, 15, -15, 0] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                style={{ display: 'inline-block', marginLeft: '5px', fontSize: '1.2em' }}
+              >
+                📡
+              </motion.span>
             </motion.h3>
-            <p className="mt-2 text-gray-400">Upload a video to start exploring together</p>
+            <p className="mt-2 text-gray-400" style={{ position: 'relative', zIndex: 2, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}>
+              上传视频开始一起探索宇宙吧
+              <motion.span
+                animate={{ x: [0, 5, 0] }}
+                transition={{ repeat: Infinity, duration: 1, ease: "easeInOut" }}
+                style={{ display: 'inline-block', marginLeft: '5px' }}
+              >
+                ✨
+              </motion.span>
+            </p>
           </VideoPlaceholder>
         </VideoContainer>
       </VideoSection>

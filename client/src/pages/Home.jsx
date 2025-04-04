@@ -4,18 +4,20 @@ import { motion } from 'framer-motion';
 import { HiOutlinePlay, HiOutlineArrowRight, HiOutlineUserGroup } from 'react-icons/hi';
 import { FaRocket, FaSatellite, FaSpaceShuttle, FaGlobeAsia, FaMeteor } from 'react-icons/fa';
 import Card from '../components/Card';
+import { useLanguage } from '../contexts/LanguageContext';
 
 function Home() {
   const navigate = useNavigate();
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [error, setError] = useState('');
+  const { t } = useLanguage();
   
   const handleJoinRoom = async (e) => {
     e.preventDefault();
     
     if (!roomId.trim()) {
-      setError('Room ID is required');
+      setError(t.roomIdRequired);
       return;
     }
     
@@ -24,17 +26,17 @@ function Home() {
       const data = await response.json();
       
       if (!data.success) {
-        setError('Room not found. Please check the Room ID.');
+        setError(t.roomNotFound);
         return;
       }
       
       // Navigate to the room with username as state
       navigate(`/room/${roomId.trim()}`, { 
-        state: { userName: userName.trim() || 'Anonymous' } 
+        state: { userName: userName.trim() || t.anonymous } 
       });
       
     } catch (error) {
-      setError('Failed to join room. Please try again.');
+      setError(t.failedToJoin);
       console.error('Error joining room:', error);
     }
   };
@@ -131,15 +133,14 @@ function Home() {
             className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight font-space tracking-wide"
             variants={itemVariants}
           >
-            <span className="text-space-star">Cosmic Video</span> Exploration with Friends
+            <span className="text-space-star">{t.cosmicVideo}</span> {t.explorationWithFriends}
           </motion.h1>
           
           <motion.p 
             className="text-lg text-slate-300 mb-8 max-w-xl"
             variants={itemVariants}
           >
-            Join planets across the galaxy, connect with fellow explorers, and 
-            experience synchronized adventures in cosmic harmony.
+            {t.joinPlanetsDesc}
           </motion.p>
           
           <motion.div 
@@ -151,14 +152,14 @@ function Home() {
               className="btn btn-primary flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(254,240,138,0.3)]"
             >
               <FaGlobeAsia className="text-sm" />
-              Host a Planet
+              {t.hostPlanetBtn}
             </Link>
             <Link 
               to="/planets" 
               className="btn btn-outline flex items-center justify-center gap-2"
             >
               <FaSatellite className="text-sm" />
-              Explore Planets
+              {t.explorePlanetsBtn}
             </Link>
           </motion.div>
           
@@ -175,23 +176,23 @@ function Home() {
                 >
                   <FaSatellite className="mr-2 text-lg" />
                 </motion.span>
-                Real-time
+                {t.realTime}
               </div>
-              <div className="text-sm">Quantum Sync</div>
+              <div className="text-sm">{t.quantumSync}</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="font-bold text-2xl text-space-star mb-1 flex items-center">
                 <FaGlobeAsia className="mr-2 text-lg" />
-                Universal
+                {t.universal}
               </div>
-              <div className="text-sm">Compatibility</div>
+              <div className="text-sm">{t.compatibility}</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="font-bold text-2xl text-space-star mb-1 flex items-center">
                 <FaSpaceShuttle className="mr-2 text-lg" />
-                Free
+                {t.free}
               </div>
-              <div className="text-sm">No Tokens</div>
+              <div className="text-sm">{t.noTokens}</div>
             </div>
           </motion.div>
         </motion.div>
@@ -206,19 +207,19 @@ function Home() {
         >
           <Card 
             variant="highlighted" 
-            title="Join a Planet"
+            title={t.joinPlanet}
             icon={<FaGlobeAsia />}
             className="backdrop-blur-md"
           >
             <form onSubmit={handleJoinRoom} className="space-y-5">
               <div>
                 <label htmlFor="roomId" className="block mb-2 font-medium text-slate-300">
-                  Planet ID
+                  {t.planetId}
                 </label>
                 <input
                   id="roomId"
                   type="text"
-                  placeholder="Enter planet code"
+                  placeholder={t.enterPlanetCode}
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                   className="form-input"
@@ -227,12 +228,12 @@ function Home() {
               
               <div>
                 <label htmlFor="userName" className="block mb-2 font-medium text-slate-300">
-                  Explorer Name
+                  {t.explorerName}
                 </label>
                 <input
                   id="userName"
                   type="text"
-                  placeholder="Enter your space identity"
+                  placeholder={t.enterSpaceIdentity}
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   className="form-input"
@@ -257,7 +258,7 @@ function Home() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Join Now
+                {t.joinNow}
                 <HiOutlineArrowRight />
               </motion.button>
             </form>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { FaRocket, FaGlobeAsia, FaSatellite, FaUsers, FaVideo, FaClock } from 'react-icons/fa';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PlanetsContainer = styled.div`
   padding: 1.5rem 0;
@@ -189,27 +190,27 @@ const LoadingState = styled.div`
 `;
 
 // Format the creation time to be human-readable
-function formatTimeAgo(date) {
+function formatTimeAgo(date, t) {
   const now = new Date();
   const createdAt = new Date(date);
   const diffInSeconds = Math.floor((now - createdAt) / 1000);
   
   if (diffInSeconds < 60) {
-    return 'just now';
+    return t.justNow;
   }
   
   if (diffInSeconds < 3600) {
     const minutes = Math.floor(diffInSeconds / 60);
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    return minutes === 1 ? t.timeAgoMinute : t.timeAgoMinutes.replace('{{count}}', minutes);
   }
   
   if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600);
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    return hours === 1 ? t.timeAgoHour : t.timeAgoHours.replace('{{count}}', hours);
   }
   
   const days = Math.floor(diffInSeconds / 86400);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  return days === 1 ? t.timeAgoDay : t.timeAgoDays.replace('{{count}}', days);
 }
 
 function Planets() {
@@ -217,6 +218,7 @@ function Planets() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { t } = useLanguage();
   
   // Fetch all active planets when the component mounts
   useEffect(() => {
@@ -249,7 +251,7 @@ function Planets() {
   // Handle joining a planet
   const handleJoinPlanet = (planetId) => {
     navigate(`/room/${planetId}`, {
-      state: { userName: 'Explorer' } // You could prompt for a name or use a stored name
+      state: { userName: t.anonymous }
     });
   };
   
@@ -338,12 +340,12 @@ function Planets() {
         <PageHeader>
           <PageTitle>
             <FaGlobeAsia className="text-space-star" />
-            Active Planets <span className="text-sm text-space-star ml-2">({planets.length})</span>
+            {t.availablePlanets} <span className="text-sm text-space-star ml-2">({planets.length})</span>
           </PageTitle>
           
           <CreateRoomButton to="/create">
             <FaRocket />
-            Host a New Planet
+            {t.hostPlanet}
           </CreateRoomButton>
         </PageHeader>
         
@@ -356,11 +358,11 @@ function Planets() {
             {planets.length === 0 ? (
               <EmptyState>
                 <FaSatellite className="text-space-star text-4xl mb-4" />
-                <h3 className="text-xl mb-2">No Active Planets Found</h3>
-                <p className="text-gray-400 mb-4">Be the first to launch a planet for exploration!</p>
+                <h3 className="text-xl mb-2">{t.noPlanetsFound}</h3>
+                <p className="text-gray-400 mb-4">{t.createFirstPlanet}</p>
                 <CreateRoomButton to="/create" className="mx-auto inline-flex">
                   <FaRocket />
-                  Host a New Planet
+                  {t.hostPlanet}
                 </CreateRoomButton>
               </EmptyState>
             ) : (
@@ -378,11 +380,11 @@ function Planets() {
                     <PlanetInfo>
                       <InfoItem>
                         <FaSatellite />
-                        <span>Theme: {planet.theme}</span>
+                        <span>{t.planetTheme}: {planet.theme}</span>
                       </InfoItem>
                       <InfoItem>
                         <FaUsers />
-                        <span>Explorers: {planet.viewerCount}</span>
+                        <span>{t.activeExplorers.replace('{{count}}', planet.viewerCount)}</span>
                       </InfoItem>
                       <InfoItem>
                         <FaVideo />
@@ -390,7 +392,7 @@ function Planets() {
                       </InfoItem>
                       <InfoItem>
                         <FaClock />
-                        <span>Created: {formatTimeAgo(planet.createdAt)}</span>
+                        <span>{t.planetCreatedAt.replace('{{time}}', formatTimeAgo(planet.createdAt, t))}</span>
                       </InfoItem>
                     </PlanetInfo>
                     <InfoItem className="text-xs opacity-60">
@@ -404,7 +406,7 @@ function Planets() {
                       whileTap={{ scale: 0.97 }}
                     >
                       <FaRocket />
-                      Join Planet
+                      {t.join}
                     </JoinButton>
                   </PlanetFooter>
                 </PlanetCard>

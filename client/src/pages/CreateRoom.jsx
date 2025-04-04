@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaGlobeAsia, FaSatellite, FaCopy, FaRocket, FaTag, FaPalette } from 'react-icons/fa';
 import Card from '../components/Card';
+import { useLanguage } from '../contexts/LanguageContext';
 
 function CreateRoom() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ function CreateRoom() {
   const [isLoading, setIsLoading] = useState(false);
   const [roomCreated, setRoomCreated] = useState(false);
   const [roomInfo, setRoomInfo] = useState(null);
+  const { t } = useLanguage();
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ function CreateRoom() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          hostName: hostName.trim() || 'Anonymous',
+          hostName: hostName.trim() || t.anonymous,
           roomName: roomName.trim() || 'Untitled Planet',
           roomTheme: roomTheme.trim() || 'General',
         }),
@@ -49,7 +51,7 @@ function CreateRoom() {
       setRoomCreated(true);
       
     } catch (error) {
-      setError('Failed to create planet. Please try again.');
+      setError(t.failedToJoin);
       console.error('Error creating planet:', error);
     } finally {
       setIsLoading(false);
@@ -72,7 +74,7 @@ function CreateRoom() {
     if (!roomInfo) return;
     navigate(`/room/${roomInfo.roomId}`, { 
       state: { 
-        userName: hostName.trim() || 'Anonymous',
+        userName: hostName.trim() || t.anonymous,
         roomName: roomInfo.roomName,
         roomTheme: roomInfo.roomTheme
       } 
@@ -146,32 +148,32 @@ function CreateRoom() {
             variant={roomCreated ? "highlighted" : "elevated"}
             className="backdrop-blur-md"
             icon={<FaGlobeAsia />}
-            title={roomCreated ? "Planet Created!" : "Create Your Planet"}
+            title={roomCreated ? t.planetCreated : t.createYourPlanet}
           >
             {roomCreated ? (
               <div className="space-y-6">
                 <div className="text-center text-slate-300 mb-6 flex items-center justify-center gap-2">
                   <FaSatellite className="text-space-star animate-pulse" />
-                  <span>Share the planet ID or link with your fellow explorers</span>
+                  <span>{t.shareInviteInfo}</span>
                 </div>
                 
                 <div className="space-border border p-4 rounded-lg relative bg-space-dark/50">
                   <label className="block mb-2 text-sm font-medium text-slate-400">
-                    Planet Name
+                    {t.planetName}
                   </label>
                   <div className="text-xl font-medium text-center mb-2 text-space-star">
                     {roomInfo.roomName}
                   </div>
                   
                   <label className="block mb-2 text-sm font-medium text-slate-400">
-                    Planet Theme
+                    {t.planetTheme}
                   </label>
                   <div className="text-sm text-center mb-4 text-slate-300">
                     {roomInfo.roomTheme}
                   </div>
                   
                   <label className="block mb-2 text-sm font-medium text-slate-400">
-                    Planet ID
+                    {t.planetId}
                   </label>
                   <div className="text-3xl font-mono text-center mb-2 font-bold tracking-widest text-space-star">
                     {roomInfo.roomId}
@@ -199,7 +201,7 @@ function CreateRoom() {
                     whileTap={{ scale: 0.98 }}
                   >
                     <FaCopy className="text-sm" />
-                    Copy Link
+                    {t.copyLink}
                   </motion.button>
                   <motion.button 
                     className="btn btn-primary flex-1 w-full sm:w-auto flex items-center justify-center gap-2 min-w-[160px]"
@@ -208,7 +210,7 @@ function CreateRoom() {
                     whileTap={{ scale: 0.98 }}
                   >
                     <FaRocket className="text-sm" />
-                    Launch Planet
+                    {t.launchPlanet}
                   </motion.button>
                 </div>
               </div>
@@ -216,14 +218,14 @@ function CreateRoom() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="roomName" className="block mb-2 font-medium text-slate-300">
-                    Planet Name
+                    {t.planetName}
                   </label>
                   <div className="relative">
                     <FaTag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="roomName"
                       type="text"
-                      placeholder="Enter a name for your planet"
+                      placeholder={t.planetNamePlaceholder}
                       value={roomName}
                       onChange={(e) => setRoomName(e.target.value)}
                       className="form-input pl-10"
@@ -233,14 +235,14 @@ function CreateRoom() {
                 
                 <div>
                   <label htmlFor="roomTheme" className="block mb-2 font-medium text-slate-300">
-                    Planet Theme
+                    {t.planetTheme}
                   </label>
                   <div className="relative">
                     <FaPalette className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="roomTheme"
                       type="text"
-                      placeholder="Movie night, Study session, etc."
+                      placeholder={t.planetThemePlaceholder}
                       value={roomTheme}
                       onChange={(e) => setRoomTheme(e.target.value)}
                       className="form-input pl-10"
@@ -250,12 +252,12 @@ function CreateRoom() {
                 
                 <div>
                   <label htmlFor="hostName" className="block mb-2 font-medium text-slate-300">
-                    Explorer Name
+                    {t.explorerName}
                   </label>
                   <input
                     id="hostName"
                     type="text"
-                    placeholder="Enter your space identity"
+                    placeholder={t.enterSpaceIdentity}
                     value={hostName}
                     onChange={(e) => setHostName(e.target.value)}
                     className="form-input"
@@ -280,7 +282,7 @@ function CreateRoom() {
                   whileHover={{ scale: isLoading ? 1 : 1.02 }}
                   whileTap={{ scale: isLoading ? 1 : 0.98 }}
                 >
-                  {isLoading ? 'Creating Planet...' : 'Create Planet'}
+                  {isLoading ? t.creatingPlanet : t.createPlanet}
                   <FaGlobeAsia className={`text-sm ${isLoading ? 'animate-spin' : ''}`} />
                 </motion.button>
               </form>

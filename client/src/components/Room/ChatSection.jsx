@@ -4,6 +4,7 @@ import { FaPaperPlane } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { formatChatTime } from '../../utils/formatTime';
 import { Card, CardHeader, CardBody, SystemMessage } from './RoomStyles';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 // 聊天区域样式
 const ChatContainer = styled.div`
@@ -108,11 +109,13 @@ const ChatSection = ({
   handleSendMessage, 
   iconElement 
 }) => {
+  const { t } = useLanguage();
+  
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', height: '400px' }}>
       <CardHeader>
         {iconElement}
-        Space Communications 
+        {t.chat}
       </CardHeader>
       <ChatContainer>
         <ChatMessages id="chat-messages">
@@ -146,7 +149,7 @@ const ChatSection = ({
         <ChatForm onSubmit={handleSendMessage}>
           <ChatInput
             type="text"
-            placeholder="Type a message..."
+            placeholder={t.messagePlaceholder}
             value={messageInput}
             onChange={(e) => setMessageInput(e.target.value)}
           />
@@ -158,7 +161,7 @@ const ChatSection = ({
             disabled={!messageInput.trim()}
           >
             <FaPaperPlane size={12} />
-            Send
+            {t.sendMessage}
           </motion.button>
         </ChatForm>
       </ChatContainer>

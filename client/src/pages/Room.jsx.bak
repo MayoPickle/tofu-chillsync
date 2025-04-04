@@ -224,7 +224,7 @@ const Room = () => {
     };
     
     const handleTimeUpdate = () => {
-        setCurrentTime(videoElement.currentTime);
+      setCurrentTime(videoElement.currentTime);
     };
     
     const handleDurationChange = () => {

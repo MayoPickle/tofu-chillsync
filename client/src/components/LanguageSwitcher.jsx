@@ -28,7 +28,7 @@ function LanguageSwitcher() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="absolute right-0 mt-2 py-2 w-32 bg-space-dark border border-primary-900/30 rounded-md shadow-lg backdrop-blur z-50"
+          className="absolute left-0 mt-2 py-2 w-32 bg-space-dark border border-primary-900/30 rounded-md shadow-lg backdrop-blur z-50"
         >
           <button
             className={`flex items-center w-full px-4 py-2 text-sm ${language === 'en' ? 'text-space-star' : 'text-slate-300'} hover:bg-space-dark/80 hover:text-space-star`}
