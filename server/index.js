@@ -8,6 +8,9 @@ const dotenv = require('dotenv');
 const multer = require('multer');
 const fs = require('fs');
 
+// 设置全局编码为UTF-8，确保正确处理中文
+process.env.LANG = 'zh_CN.UTF-8';
+
 // Load environment variables
 dotenv.config();
 
@@ -39,15 +42,17 @@ const storage = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
+    // 处理中文文件名：保存原始名称的Buffer编码
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + path.extname(originalName));
   }
 });
 
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB limit
+    fileSize: 3 * 1024 * 1024 * 1024, // 3GB limit
   }
 });
 
@@ -68,6 +73,7 @@ app.post('/api/rooms', (req, res) => {
     createdAt: new Date(),
     viewers: [],
     videoInfo: null,
+    chatMessages: [],
     playbackState: {
       isPlaying: false,
       currentTime: 0,
@@ -141,9 +147,12 @@ app.post('/api/rooms/:roomId/upload', upload.single('video'), (req, res) => {
     });
   }
   
+  // 处理中文文件名：将原始文件名从latin1转换为utf8
+  const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  
   const videoInfo = {
     fileName: req.file.filename,
-    originalName: req.file.originalname,
+    originalName: originalName,
     mimeType: req.file.mimetype,
     size: req.file.size,
     path: `/uploads/${req.file.filename}`
@@ -181,6 +190,7 @@ io.on('connection', (socket) => {
     
     // Store visitorId in socket for reference
     socket.visitorId = visitorId;
+    socket.userName = userName; // 保存用户名到socket对象
     
     // Check if this user is already in the room (page refresh case)
     const existingViewerIndex = rooms[roomId].viewers.findIndex(v => v.visitorId === visitorId);
@@ -192,6 +202,30 @@ io.on('connection', (socket) => {
       
       // Update the socket ID but keep the visitor ID and name
       existingViewer.id = socket.id;
+      
+      // 更新用户名（如果发生了变化）
+      if (existingViewer.name !== userName) {
+        const oldName = existingViewer.name;
+        existingViewer.name = userName;
+        
+        // 创建系统消息记录用户名变更
+        const systemMessage = {
+          id: Date.now(),
+          sender: 'System',
+          message: `${oldName} 重新连接为 ${userName}`,
+          timestamp: new Date(),
+          isSystem: true
+        };
+        
+        // 将系统消息添加到聊天记录
+        if (!rooms[roomId].chatMessages) {
+          rooms[roomId].chatMessages = [];
+        }
+        rooms[roomId].chatMessages.push(systemMessage);
+        
+        // 广播系统消息
+        io.to(roomId).emit('newChatMessage', systemMessage);
+      }
       
       // Add to socket.io room
       socket.join(roomId);
@@ -217,10 +251,68 @@ io.on('connection', (socket) => {
     // Send current room state to the new user
     socket.emit('roomState', rooms[roomId]);
     
+    // 创建系统消息通知有新用户加入
+    const joinMessage = {
+      id: Date.now(),
+      sender: 'System',
+      message: `${userName} 加入了房间`,
+      timestamp: new Date(),
+      isSystem: true
+    };
+    
+    // 将系统消息添加到聊天记录
+    if (!rooms[roomId].chatMessages) {
+      rooms[roomId].chatMessages = [];
+    }
+    rooms[roomId].chatMessages.push(joinMessage);
+    
     // Broadcast to others in the room
     socket.to(roomId).emit('userJoined', viewer);
     
+    // 向所有人广播加入消息
+    io.to(roomId).emit('newChatMessage', joinMessage);
+    
     console.log(`${viewer.name} (${visitorId}) joined room ${roomId}`);
+  });
+  
+  // 添加处理用户改名事件
+  socket.on('userNameChanged', ({ roomId, oldUserName, newUserName }) => {
+    if (!rooms[roomId]) return;
+    
+    // 查找该用户在房间中的记录
+    const viewerIndex = rooms[roomId].viewers.findIndex(v => v.id === socket.id);
+    
+    if (viewerIndex !== -1) {
+      // 更新用户名
+      rooms[roomId].viewers[viewerIndex].name = newUserName;
+      
+      // 创建系统消息记录用户名变更
+      const systemMessage = {
+        id: Date.now(),
+        sender: 'System',
+        message: `${oldUserName} 修改名称为 ${newUserName}`,
+        timestamp: new Date(),
+        isSystem: true
+      };
+      
+      // 将系统消息添加到聊天记录
+      if (!rooms[roomId].chatMessages) {
+        rooms[roomId].chatMessages = [];
+      }
+      rooms[roomId].chatMessages.push(systemMessage);
+      
+      // 通知房间内所有人用户改名了
+      io.to(roomId).emit('userNameChanged', {
+        socketId: socket.id,
+        oldName: oldUserName,
+        newName: newUserName
+      });
+      
+      // 广播系统消息
+      io.to(roomId).emit('newChatMessage', systemMessage);
+      
+      console.log(`User ${socket.id} changed name from ${oldUserName} to ${newUserName} in room ${roomId}`);
+    }
   });
   
   // Handle playback control events
@@ -255,10 +347,21 @@ io.on('connection', (socket) => {
     const chatMessage = {
       id: Date.now(),
       sender: sender || 'Anonymous',
-      visitorId: visitorId, // Include the visitorId in the message
+      visitorId: visitorId || socket.visitorId,
       message,
       timestamp: new Date()
     };
+    
+    // 保存聊天记录到房间对象中
+    if (!rooms[roomId].chatMessages) {
+      rooms[roomId].chatMessages = [];
+    }
+    rooms[roomId].chatMessages.push(chatMessage);
+    
+    // 限制历史消息数量，保留最近的500条
+    if (rooms[roomId].chatMessages.length > 500) {
+      rooms[roomId].chatMessages = rooms[roomId].chatMessages.slice(-500);
+    }
     
     // Broadcast to all in the room
     io.to(roomId).emit('newChatMessage', chatMessage);
