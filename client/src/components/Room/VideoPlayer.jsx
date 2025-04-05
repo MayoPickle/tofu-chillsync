@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { ThemeProvider } from 'styled-components';
 import { motion } from 'framer-motion';
 import { FaPlay, FaPause, FaCompress, FaExpand, FaVolumeUp, FaVolumeDown, FaVolumeMute, FaSatellite } from 'react-icons/fa';
 import { formatTime } from '../../utils/formatTime';
@@ -34,6 +34,12 @@ const VideoContainer = styled.div`
     height: 100%;
     object-fit: contain;
   }
+  
+  &.controls-hidden {
+    .video-controls {
+      opacity: 0;
+    }
+  }
 `;
 
 const VideoPlaceholder = styled.div`
@@ -58,12 +64,13 @@ const VideoPlayerControls = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  opacity: 1;
+  transition: opacity 0.3s ease;
   z-index: 10;
   
-  ${VideoContainer}:hover & {
-    opacity: 1;
+  // 全屏模式下显示/隐藏控制（使用.controls-hidden类控制）
+  ${VideoContainer}.controls-hidden & {
+    opacity: 0;
   }
   
   // Always show controls on touch devices
@@ -72,6 +79,16 @@ const VideoPlayerControls = styled.div`
     padding: 0.5rem;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7) 80%, rgba(0, 0, 0, 0.4));
   }
+  
+  // 全屏模式下控制条样式增强
+  ${props => props.theme.fullscreenMode && `
+    padding: 1.2rem 2rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5) 70%, transparent);
+    
+    @media (max-width: 768px) {
+      padding: 0.8rem 1rem;
+    }
+  `}
 `;
 
 const ControlsRow = styled.div`
@@ -255,6 +272,46 @@ const VolumeFill = styled.div`
   transition: width 0.1s ease;
 `;
 
+const WaitingOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: white;
+  z-index: 20;
+  backdrop-filter: blur(5px);
+  text-align: center;
+  
+  h3 {
+    color: var(--space-star, #fef08a);
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    font-size: 1rem;
+    max-width: 80%;
+    opacity: 0.9;
+  }
+`;
+
+// 全屏光标样式控制
+const CursorControl = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  cursor: ${props => props.hideCursor ? 'none' : 'default'};
+`;
+
 const VideoPlayer = ({
   videoInfo,
   socketRef,
@@ -269,12 +326,141 @@ const VideoPlayer = ({
   setCurrentTime,
   setIsPlaying,
   setVolume,
-  setIsFullscreen
+  setIsFullscreen,
+  isWaitingForNewUser,
+  newUserName
 }) => {
   const isSeeking = useRef(false);
   const ignoreNextPlayEvent = useRef(false);
   const ignorePauseEvent = useRef(false);
   const [seekTooltip, setSeekTooltip] = React.useState({ visible: false, time: 0, position: 0 });
+  const [hideControls, setHideControls] = React.useState(false);
+  const mouseActivityTimer = useRef(null);
+  // 光标隐藏状态
+  const [hideCursor, setHideCursor] = React.useState(false);
+  
+  // 设置主题，用于全屏模式的样式调整
+  const theme = {
+    fullscreenMode: isFullscreen
+  };
+
+  // 处理鼠标移动，用于全屏模式下控制条的显示和隐藏
+  const handleMouseMove = () => {
+    // 仅在全屏模式下处理
+    if (!isFullscreen) return;
+    
+    // 显示控制条和光标
+    setHideControls(false);
+    setHideCursor(false);
+    
+    // 清除之前的定时器
+    if (mouseActivityTimer.current) {
+      clearTimeout(mouseActivityTimer.current);
+    }
+    
+    // 设置新的定时器，3秒后隐藏控制条和光标
+    mouseActivityTimer.current = setTimeout(() => {
+      // 如果视频是暂停状态，不隐藏控制条和光标
+      if (videoRef.current && videoRef.current.paused) {
+        return;
+      }
+      
+      setHideControls(true);
+      setHideCursor(true);
+    }, 3000);
+  };
+  
+  // 处理鼠标离开视频容器
+  const handleMouseLeave = () => {
+    // 在全屏模式下，如果视频正在播放，立即隐藏控制条
+    if (isFullscreen && videoRef.current && !videoRef.current.paused) {
+      setHideControls(true);
+      setHideCursor(true);
+      
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+    }
+  };
+  
+  // 监听全屏状态变化
+  useEffect(() => {
+    // 全屏状态改变时，重置控制条显示
+    setHideControls(false);
+    setHideCursor(false);
+    
+    // 清除旧的定时器
+    if (mouseActivityTimer.current) {
+      clearTimeout(mouseActivityTimer.current);
+    }
+    
+    // 如果进入全屏且视频正在播放，设置定时器隐藏控制条
+    if (isFullscreen && videoRef.current && !videoRef.current.paused) {
+      mouseActivityTimer.current = setTimeout(() => {
+        setHideControls(true);
+        setHideCursor(true);
+      }, 3000);
+    }
+    
+    return () => {
+      // 清理定时器
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+    };
+  }, [isFullscreen]);
+  
+  // 监听播放状态变化
+  useEffect(() => {
+    // 如果视频暂停，显示控制条
+    if (!isPlaying && isFullscreen) {
+      setHideControls(false);
+      setHideCursor(false);
+    }
+    // 如果视频开始播放且在全屏模式，设置定时器隐藏控制条
+    else if (isPlaying && isFullscreen) {
+      setHideControls(false);
+      setHideCursor(false);
+      
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+      
+      mouseActivityTimer.current = setTimeout(() => {
+        setHideControls(true);
+        setHideCursor(true);
+      }, 3000);
+    }
+    
+    return () => {
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+    };
+  }, [isPlaying, isFullscreen]);
+
+  // 组件挂载后初始化控制条隐藏逻辑
+  useEffect(() => {
+    // 如果组件加载时已经是全屏+播放状态，设置一个定时器隐藏控制条
+    if (isFullscreen && isPlaying && videoRef.current && !videoRef.current.paused) {
+      // 先清除任何现有的定时器
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+      
+      // 设置新的定时器
+      mouseActivityTimer.current = setTimeout(() => {
+        setHideControls(true);
+        setHideCursor(true);
+      }, 3000);
+    }
+    
+    return () => {
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+    };
+  }, []);
 
   // 处理播放/暂停按钮点击
   const handlePlayPause = () => {
@@ -284,6 +470,22 @@ const VideoPlayer = ({
       // 播放视频并更新本地状态
       videoRef.current.play().then(() => {
         setIsPlaying(true);
+        
+        // 显示控制条，然后设置定时器隐藏
+        if (isFullscreen) {
+          setHideControls(false);
+          setHideCursor(false);
+          
+          if (mouseActivityTimer.current) {
+            clearTimeout(mouseActivityTimer.current);
+          }
+          
+          mouseActivityTimer.current = setTimeout(() => {
+            setHideControls(true);
+            setHideCursor(true);
+          }, 3000);
+        }
+        
         // 通知其他客户端
         socketRef.current.emit('playbackControl', {
           roomId,
@@ -298,6 +500,16 @@ const VideoPlayer = ({
       // 暂停视频并更新本地状态
       videoRef.current.pause();
       setIsPlaying(false);
+      
+      // 始终显示控制条和光标
+      setHideControls(false);
+      setHideCursor(false);
+      
+      // 清除隐藏控制条的定时器
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+      
       // 通知其他客户端
       socketRef.current.emit('playbackControl', {
         roomId,
@@ -312,6 +524,10 @@ const VideoPlayer = ({
   const handleSeekTo = (seekTime) => {
     if (!videoRef.current) return;
     
+    // 记录当前播放状态
+    const wasPlaying = !videoRef.current.paused;
+    
+    // 设置正在拖动标志，防止timeupdate事件中的同步
     isSeeking.current = true;
     
     // 更新本地状态
@@ -320,15 +536,22 @@ const VideoPlayer = ({
     // 设置视频时间
     videoRef.current.currentTime = seekTime;
     
+    // 如果之前在播放中，确保跳转后继续播放
+    if (wasPlaying && videoRef.current.paused) {
+      videoRef.current.play()
+        .catch(err => console.error('Error playing after seek:', err));
+    }
+    
     // 通知其他人
     socketRef.current.emit('playbackControl', {
       roomId,
       action: 'seek',
       currentTime: seekTime,
       // 添加当前播放状态，确保所有客户端保持一致的播放/暂停状态
-      isPlaying: !videoRef.current.paused
+      isPlaying: wasPlaying
     });
     
+    // 重置拖动标志
     isSeeking.current = false;
   };
 
@@ -576,6 +799,35 @@ const VideoPlayer = ({
     };
   }, [setIsFullscreen]);
 
+  // 处理视频区域点击
+  const handleVideoContainerClick = (e) => {
+    // 防止冒泡到video元素的点击处理
+    e.stopPropagation();
+    
+    // 如果控制条被隐藏，则显示控制条
+    if (hideControls) {
+      setHideControls(false);
+      setHideCursor(false);
+      
+      // 清除之前的定时器
+      if (mouseActivityTimer.current) {
+        clearTimeout(mouseActivityTimer.current);
+      }
+      
+      // 如果视频正在播放，设置新的定时器再次隐藏控制条
+      if (videoRef.current && !videoRef.current.paused) {
+        mouseActivityTimer.current = setTimeout(() => {
+          setHideControls(true);
+          setHideCursor(true);
+        }, 3000);
+      }
+    } 
+    // 如果控制条已经显示，则触发播放/暂停
+    else {
+      handlePlayPause();
+    }
+  };
+
   if (!videoInfo) {
     return (
       <VideoSection>
@@ -655,114 +907,153 @@ const VideoPlayer = ({
   }
 
   return (
-    <VideoSection>
-      <VideoContainer ref={videoContainerRef}>
-        <video 
-          ref={videoRef}
-          src={videoInfo.path}
-          controls={false}
-          playsInline={true}
-          data-webkit-playsinline="true"
-          data-webkit-airplay="allow"
-          data-x5-playsinline="true"
-          data-x5-video-player-type="h5"
-          data-x5-video-player-fullscreen="true"
-          onClick={handlePlayPause}
-        />
-        
-        <VideoPlayerControls>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <ProgressBar 
-              progress={(currentTime / duration) * 100 || 0}
-              onClick={(e) => {
-                if (!videoRef.current || !duration) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const position = (e.clientX - rect.left) / rect.width;
-                const seekTime = position * duration;
-                handleSeekTo(seekTime);
-              }}
-              onTouchStart={(e) => {
-                if (!videoRef.current || !duration) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const position = (e.touches[0].clientX - rect.left) / rect.width;
-                const seekTime = position * duration;
-                handleSeekTo(seekTime);
-              }}
-              onMouseMove={handleSeekBarHover}
-              onTouchMove={(e) => {
-                if (!videoRef.current || !duration) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const position = (e.touches[0].clientX - rect.left) / rect.width;
-                const hoverTime = position * duration;
-                
-                setSeekTooltip({
-                  visible: true,
-                  time: hoverTime,
-                  position: e.touches[0].clientX - rect.left
-                });
-              }}
-              onMouseLeave={() => setSeekTooltip({ ...seekTooltip, visible: false })}
-              onTouchEnd={() => setSeekTooltip({ ...seekTooltip, visible: false })}
-            />
-            {duration > 0 && (
-              <SeekTooltip 
-                isVisible={seekTooltip.visible} 
-                style={{ left: `${seekTooltip.position}px` }}
-              >
-                {formatTime(seekTooltip.time, duration)}
-              </SeekTooltip>
-            )}
-          </div>
+    <ThemeProvider theme={theme}>
+      <VideoSection>
+        <VideoContainer 
+          ref={videoContainerRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          onClick={handleVideoContainerClick}
+          className={isFullscreen && hideControls ? "controls-hidden" : ""}
+        >
+          <video 
+            ref={videoRef}
+            src={videoInfo.path}
+            controls={false}
+            playsInline={true}
+            data-webkit-playsinline="true"
+            data-webkit-airplay="allow"
+            data-x5-playsinline="true"
+            data-x5-video-player-type="h5"
+            data-x5-video-player-fullscreen="true"
+          />
           
-          <ControlsRow>
-            <ControlButton 
-              onClick={handlePlayPause}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              {isPlaying ? <FaPause /> : <FaPlay />}
-            </ControlButton>
+          {/* 全屏模式下的光标控制层 */}
+          {isFullscreen && (
+            <CursorControl hideCursor={hideCursor} />
+          )}
+          
+          {isWaitingForNewUser && (
+            <WaitingOverlay>
+              <motion.h3
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                等待新探索者加入...
+              </motion.h3>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                新探索者 <span style={{ color: 'var(--space-star, #fef08a)', fontWeight: 'bold' }}>{newUserName}</span> 正在同步播放进度
+              </motion.p>
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                style={{ marginTop: '20px' }}
+              >
+                <div className="loading-spinner" style={{ width: '40px', height: '40px', borderColor: 'var(--space-star, #fef08a) transparent transparent transparent' }} />
+              </motion.div>
+            </WaitingOverlay>
+          )}
+          
+          <VideoPlayerControls theme={theme} className="video-controls">
+            <div style={{ position: 'relative', width: '100%' }}>
+              <ProgressBar 
+                progress={(currentTime / duration) * 100 || 0}
+                onClick={(e) => {
+                  if (!videoRef.current || !duration) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const position = (e.clientX - rect.left) / rect.width;
+                  const seekTime = position * duration;
+                  handleSeekTo(seekTime);
+                }}
+                onTouchStart={(e) => {
+                  if (!videoRef.current || !duration) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const position = (e.touches[0].clientX - rect.left) / rect.width;
+                  const seekTime = position * duration;
+                  handleSeekTo(seekTime);
+                }}
+                onMouseMove={handleSeekBarHover}
+                onTouchMove={(e) => {
+                  if (!videoRef.current || !duration) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const position = (e.touches[0].clientX - rect.left) / rect.width;
+                  const hoverTime = position * duration;
+                  
+                  setSeekTooltip({
+                    visible: true,
+                    time: hoverTime,
+                    position: e.touches[0].clientX - rect.left
+                  });
+                }}
+                onMouseLeave={() => setSeekTooltip({ ...seekTooltip, visible: false })}
+                onTouchEnd={() => setSeekTooltip({ ...seekTooltip, visible: false })}
+              />
+              {duration > 0 && (
+                <SeekTooltip 
+                  isVisible={seekTooltip.visible} 
+                  style={{ left: `${seekTooltip.position}px` }}
+                >
+                  {formatTime(seekTooltip.time, duration)}
+                </SeekTooltip>
+              )}
+            </div>
             
-            <TimeDisplay>
-              <span>{formatTime(currentTime || 0, duration)}</span>
-              <span className="opacity-50 mx-1">/</span>
-              <span>{formatTime(duration || 0, duration)}</span>
-            </TimeDisplay>
-            
-            <VolumeControl>
+            <ControlsRow>
               <ControlButton 
-                onClick={toggleMute}
+                onClick={handlePlayPause}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                {getVolumeIcon()}
+                {isPlaying ? <FaPause /> : <FaPlay />}
               </ControlButton>
-              <VolumeSliderContainer className="volume-slider-container">
-                <VolumeTrack />
-                <VolumeFill value={volume} />
-                <VolumeSlider 
-                  min={0} 
-                  max={1} 
-                  step={0.01}
-                  value={volume}
-                  onChange={handleVolumeChange}
-                />
-              </VolumeSliderContainer>
-            </VolumeControl>
-            
-            <div className="flex-1"></div>
-            
-            <ControlButton 
-              onClick={toggleFullscreen}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              {isFullscreen ? <FaCompress /> : <FaExpand />}
-            </ControlButton>
-          </ControlsRow>
-        </VideoPlayerControls>
-      </VideoContainer>
-    </VideoSection>
+              
+              <TimeDisplay>
+                <span>{formatTime(currentTime || 0, duration)}</span>
+                <span className="opacity-50 mx-1">/</span>
+                <span>{formatTime(duration || 0, duration)}</span>
+              </TimeDisplay>
+              
+              <VolumeControl>
+                <ControlButton 
+                  onClick={toggleMute}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  {getVolumeIcon()}
+                </ControlButton>
+                <VolumeSliderContainer className="volume-slider-container">
+                  <VolumeTrack />
+                  <VolumeFill value={volume} />
+                  <VolumeSlider 
+                    min={0} 
+                    max={1} 
+                    step={0.01}
+                    value={volume}
+                    onChange={handleVolumeChange}
+                  />
+                </VolumeSliderContainer>
+              </VolumeControl>
+              
+              <div className="flex-1"></div>
+              
+              <ControlButton 
+                onClick={toggleFullscreen}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                {isFullscreen ? <FaCompress /> : <FaExpand />}
+              </ControlButton>
+            </ControlsRow>
+          </VideoPlayerControls>
+        </VideoContainer>
+      </VideoSection>
+    </ThemeProvider>
   );
 };
 

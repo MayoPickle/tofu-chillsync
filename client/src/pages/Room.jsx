@@ -75,6 +75,9 @@ const Room = () => {
   // 添加标志变量，防止事件循环
   const isRemoteActionRef = useRef(false);
   
+  const [isWaitingForNewUser, setIsWaitingForNewUser] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  
   // 生成背景星星
   const randomStars = Array.from({ length: 15 }, (_, i) => ({
     id: i,
@@ -125,6 +128,49 @@ const Room = () => {
     
     socketRef.current.on('userJoined', (user) => {
       setViewers(prev => [...prev, user]);
+      
+      // 当有新用户加入且当前正在播放视频时，暂停视频
+      if (videoRef.current && !videoRef.current.paused && room?.videoInfo) {
+        // 只有当当前用户不是房主，才暂停视频
+        // 房主是第一个加入房间的用户
+        const isHost = socketRef.current.id === room.hostId;
+        
+        if (isHost) {
+          // 暂停视频
+          videoRef.current.pause();
+          setIsPlaying(false);
+          
+          // 设置等待状态和新用户名称
+          setIsWaitingForNewUser(true);
+          setNewUserName(user.name);
+          
+          // 通知所有客户端暂停视频并等待新用户
+          socketRef.current.emit('playbackControl', {
+            roomId,
+            action: 'pause',
+            currentTime: videoRef.current.currentTime,
+            isPlaying: false,
+            waitingForUser: user.name
+          });
+          
+          // 5秒后恢复播放
+          setTimeout(() => {
+            if (videoRef.current && videoRef.current.paused) {
+              videoRef.current.play().catch(err => console.error('Error resuming playback:', err));
+              setIsPlaying(true);
+              setIsWaitingForNewUser(false);
+              
+              // 通知所有客户端恢复播放
+              socketRef.current.emit('playbackControl', {
+                roomId,
+                action: 'play',
+                currentTime: videoRef.current.currentTime,
+                isPlaying: true
+              });
+            }
+          }, 5000);
+        }
+      }
     });
     
     socketRef.current.on('userLeft', (user) => {
@@ -171,6 +217,16 @@ const Room = () => {
       
       console.log('Received playback update:', data);
       
+      // 处理等待新用户加入的情况
+      if (data.waitingForUser) {
+        // 设置等待状态
+        setIsWaitingForNewUser(true);
+        setNewUserName(data.waitingForUser);
+      } else {
+        // 清除等待状态
+        setIsWaitingForNewUser(false);
+      }
+      
       // 检查是否为iOS设备且处于全屏模式
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const isIOSFullscreen = isIOS && isFullscreen;
@@ -196,11 +252,50 @@ const Room = () => {
         if (Math.abs(videoRef.current.currentTime - data.currentTime) > 0.5) {
           console.log(`Syncing time from ${videoRef.current.currentTime} to ${data.currentTime}`);
           
+          // 记录当前的播放状态
+          const wasPlaying = !videoRef.current.paused;
+          
+          // 设置标志为远程操作，防止触发额外的同步事件
+          isRemoteActionRef.current = true;
+          
           // 更新内部状态以确保进度条UI立即更新
           setCurrentTime(data.currentTime);
           
           // 设置视频元素的当前时间
           videoRef.current.currentTime = data.currentTime;
+          
+          // 如果是seek操作，保持视频的播放状态
+          if (data.action === 'seek') {
+            // 如果之前在播放中，确保仍在播放
+            if (wasPlaying && videoRef.current.paused) {
+              setIsPlaying(true); // 更新React状态
+              videoRef.current.play()
+                .catch(err => console.error('Error playing after remote seek:', err));
+            }
+            // 如果之前是暂停的，保持暂停状态
+            else if (!wasPlaying && !videoRef.current.paused) {
+              setIsPlaying(false); // 更新React状态
+              videoRef.current.pause();
+            }
+          } 
+          // 否则依照data中的播放状态
+          else if (data.isPlaying !== undefined) {
+            if (data.isPlaying && videoRef.current.paused) {
+              setIsPlaying(true); // 更新React状态
+              videoRef.current.play()
+                .catch(err => console.error('Error playing video:', err));
+            } else if (!data.isPlaying && !videoRef.current.paused) {
+              setIsPlaying(false); // 更新React状态
+              videoRef.current.pause();
+            }
+          }
+          
+          // 操作完成后将标志重置
+          setTimeout(() => {
+            isRemoteActionRef.current = false;
+          }, 50);
+          
+          return; // 跳过下面的播放/暂停处理
         }
         
         // 处理播放/暂停状态同步
@@ -334,6 +429,9 @@ const Room = () => {
       
       console.log('Synchronizing playback state:', playbackState);
       
+      // 同步完成时清除等待状态
+      setIsWaitingForNewUser(false);
+      
       // 处理iOS全屏状态
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       if (isIOS && isFullscreen) {
@@ -352,14 +450,29 @@ const Room = () => {
           if (window.pendingSync) {
             console.log('Applying pending sync now that video is ready');
             
+            // 记录当前的播放状态
+            const wasPlaying = !videoRef.current.paused;
+            
             // 应用存储的同步数据
             videoRef.current.currentTime = window.pendingSync.currentTime;
             setCurrentTime(window.pendingSync.currentTime);
             
-            if (window.pendingSync.isPlaying && videoRef.current.paused) {
-              videoRef.current.play().catch(err => console.error('Error playing on delayed sync:', err));
-            } else if (!window.pendingSync.isPlaying && !videoRef.current.paused) {
-              videoRef.current.pause();
+            // 如果是seek操作，保持原来的播放状态
+            if (window.pendingSync.action === 'seek') {
+              if (wasPlaying && videoRef.current.paused) {
+                videoRef.current.play().catch(err => console.error('Error playing after delayed seek:', err));
+              }
+            }
+            // 否则按照同步数据指定的播放状态
+            else if (window.pendingSync.isPlaying !== undefined) {
+              if (window.pendingSync.isPlaying && videoRef.current.paused) {
+                setIsPlaying(true);
+                videoRef.current.play()
+                  .catch(err => console.error('Error playing on delayed sync:', err));
+              } else if (!window.pendingSync.isPlaying && !videoRef.current.paused) {
+                setIsPlaying(false);
+                videoRef.current.pause();
+              }
             }
             
             window.pendingSync = null;
@@ -375,33 +488,43 @@ const Room = () => {
       
       // 设置当前时间
       if (Math.abs(videoRef.current.currentTime - playbackState.currentTime) > 0.5) {
+        // 记录当前播放状态
+        const wasPlaying = !videoRef.current.paused;
+        
+        // 设置标志为远程操作，防止触发额外事件
+        isRemoteActionRef.current = true;
+        
         // 立即更新UI状态，确保进度条立即响应
         setCurrentTime(playbackState.currentTime);
         videoRef.current.currentTime = playbackState.currentTime;
-      }
-      
-      // 设置播放/暂停状态
-      if (playbackState.isPlaying && videoRef.current.paused) {
-        setIsPlaying(true);
-        // 设置标志为远程操作
-        isRemoteActionRef.current = true;
-        videoRef.current.play()
-          .catch(err => console.error('Error playing video during sync:', err))
-          .finally(() => {
-            // 操作完成后将标志重置
-            setTimeout(() => {
-              isRemoteActionRef.current = false;
-            }, 50);
-          });
-      } else if (!playbackState.isPlaying && !videoRef.current.paused) {
-        setIsPlaying(false);
-        // 设置标志为远程操作
-        isRemoteActionRef.current = true;
-        videoRef.current.pause();
-        // 操作完成后将标志重置
+        
+        // 如果是seek操作，保持视频的播放状态
+        if (playbackState.action === 'seek') {
+          // 如果之前在播放中，确保仍在播放
+          if (wasPlaying && videoRef.current.paused) {
+            videoRef.current.play()
+              .catch(err => console.error('Error playing after sync seek:', err));
+          }
+          // 如果之前是暂停的，保持暂停状态
+        }
+        // 否则按照指定的播放状态处理
+        else if (playbackState.isPlaying !== undefined) {
+          if (playbackState.isPlaying && videoRef.current.paused) {
+            setIsPlaying(true);
+            videoRef.current.play()
+              .catch(err => console.error('Error playing after sync:', err));
+          } else if (!playbackState.isPlaying && !videoRef.current.paused) {
+            setIsPlaying(false);
+            videoRef.current.pause();
+          }
+        }
+        
+        // 重置远程操作标志
         setTimeout(() => {
           isRemoteActionRef.current = false;
         }, 50);
+        
+        return;
       }
     };
     
@@ -409,21 +532,101 @@ const Room = () => {
     
     // 视频加载时请求同步
     const handleCanPlay = () => {
-      socketRef.current.emit('requestSync', { roomId });
+      // 发送同步请求，同时发送用户名
+      socketRef.current.emit('requestSync', { 
+        roomId,
+        userName
+      });
     };
     
     videoRef.current.addEventListener('canplay', handleCanPlay);
     
-    // 初始同步请求
-    socketRef.current.emit('requestSync', { roomId });
+    // 处理同步请求事件
+    socketRef.current.on('syncRequested', (data) => {
+      // 如果是自己发出的请求，不处理
+      if (data.requester === socketRef.current.id) return;
+      
+      console.log(`用户 ${data.userName} 请求同步`);
+      
+      // 如果当前用户是房主（第一个加入的用户）
+      const isHost = socketRef.current.id === room.hostId;
+      
+      if (isHost && videoRef.current) {
+        // 设置等待状态
+        setIsWaitingForNewUser(true);
+        setNewUserName(data.userName);
+        
+        // 暂停视频
+        if (!videoRef.current.paused) {
+          videoRef.current.pause();
+          setIsPlaying(false);
+        }
+        
+        // 通知所有客户端暂停并等待此用户
+        socketRef.current.emit('playbackControl', {
+          roomId,
+          action: 'pause',
+          currentTime: videoRef.current.currentTime,
+          isPlaying: false,
+          waitingForUser: data.userName
+        });
+        
+        // 2秒后发送当前播放状态给请求者和所有人
+        setTimeout(() => {
+          // 发送当前播放状态
+          socketRef.current.emit('sendSyncData', {
+            roomId,
+            targetId: data.requester,
+            playbackState: {
+              currentTime: videoRef.current.currentTime,
+              isPlaying: false // 初始同步时先保持暂停
+            }
+          });
+          
+          // 3秒后恢复播放并清除等待状态
+          setTimeout(() => {
+            setIsWaitingForNewUser(false);
+            
+            // 如果之前是播放状态，则恢复播放
+            if (isPlaying) {
+              videoRef.current.play()
+                .then(() => {
+                  setIsPlaying(true);
+                  
+                  // 通知所有客户端恢复播放
+                  socketRef.current.emit('playbackControl', {
+                    roomId,
+                    action: 'play',
+                    currentTime: videoRef.current.currentTime,
+                    isPlaying: true
+                  });
+                })
+                .catch(err => console.error('Error resuming playback:', err));
+            }
+          }, 3000);
+        }, 2000);
+      }
+    });
     
     return () => {
       socketRef.current.off('syncPlayback');
+      socketRef.current.off('syncRequested');
       if (videoRef.current) {
         videoRef.current.removeEventListener('canplay', handleCanPlay);
       }
     };
   }, [roomId, room?.videoInfo, socketRef.current]);
+  
+  // 初始同步请求 - 加入房间后发送
+  useEffect(() => {
+    if (socketRef.current && room) {
+      // 只有当socket连接和房间信息都可用时才发送请求
+      socketRef.current.emit('requestSync', { 
+        roomId,
+        userName
+      });
+    }
+  }, [socketRef.current, room, roomId, userName]);
   
   // 添加聊天时间戳刷新定时器
   useEffect(() => {
@@ -558,6 +761,8 @@ const Room = () => {
             setIsPlaying={setIsPlaying}
             setVolume={setVolume}
             setIsFullscreen={setIsFullscreen}
+            isWaitingForNewUser={isWaitingForNewUser}
+            newUserName={newUserName}
           />
           
           <ControlPanel>
