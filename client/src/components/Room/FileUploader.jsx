@@ -29,10 +29,16 @@ const FileUploader = ({
     const file = e.target.files[0];
     if (!file) return;
     
-    // 验证文件类型
-    const validTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-    if (!validTypes.includes(file.type)) {
-      alert('Only MP4, WebM, and OGG video formats are supported');
+    // 检查文件扩展名和类型
+    const fileName = file.name.toLowerCase();
+    const fileExt = fileName.substring(fileName.lastIndexOf('.') + 1);
+    
+    // 验证文件类型，接受指定MIME类型或者.mkv扩展名的文件
+    const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/x-matroska'];
+    const validExtensions = ['mp4', 'webm', 'ogg', 'mkv'];
+    
+    if (!validTypes.includes(file.type) && !(fileExt === 'mkv')) {
+      alert('Only MP4, WebM, OGG, and MKV video formats are supported');
       return;
     }
     
@@ -92,7 +98,7 @@ const FileUploader = ({
           <UploadInput
             id="video-upload"
             type="file"
-            accept="video/mp4,video/webm,video/ogg"
+            accept="video/mp4,video/webm,video/ogg,video/x-matroska,.mkv"
             onChange={handleFileUpload}
             disabled={isUploading}
           />
